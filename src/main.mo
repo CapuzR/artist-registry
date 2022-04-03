@@ -32,7 +32,7 @@ actor {
   public shared({caller}) func add(principal: Principal, metadata : Metadata) : async Result.Result<(), Error> {
 
         // Reject AnonymousIdentity
-        if(Principal.toText(caller) == "2vxsx-fae") {
+        if(Principal.isAnonymous(caller)) {
             return #err(#NotAuthorized);
         };
 
