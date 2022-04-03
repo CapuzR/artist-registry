@@ -61,7 +61,7 @@ actor {
 
   public shared({caller}) func remove(principal: Principal) : async Result.Result<(), Error> {
 
-      if(principal != caller || Principal.toText(caller) == "2vxsx-fae") {
+      if(principal != caller or Principal.toText(caller) == "2vxsx-fae") {
         return #err(#NotAuthorized);
       };
 
