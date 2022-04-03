@@ -31,6 +31,11 @@ actor {
 
   public shared({caller}) func add(principal: Principal, metadata : Metadata) : async Result.Result<(), Error> {
 
+        // Reject AnonymousIdentity
+        if(Principal.toText(caller) == "2vxsx-fae") {
+            return #err(#NotAuthorized);
+        };
+
         let artist: Metadata = metadata;
 
         let (newArtists, existing) = Trie.put(
@@ -56,7 +61,7 @@ actor {
 
   public shared({caller}) func remove(principal: Principal) : async Result.Result<(), Error> {
 
-      if(principal != caller) {
+      if(principal != caller || Principal.toText(caller) == "2vxsx-fae") {
         return #err(#NotAuthorized);
       };
 
