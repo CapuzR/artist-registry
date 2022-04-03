@@ -1,21 +1,8 @@
 {
   "canisters": {
     "artistRegistry": {
-      "main": "src/artistRegistry/main.mo",
+      "main": "src/main.mo",
       "type": "motoko"
-    },
-    "artistRegistry_assets": {
-      "dependencies": [
-        "artistRegistry"
-      ],
-      "frontend": {
-        "entrypoint": "src/artistRegistry_assets/src/index.html"
-      },
-      "source": [
-        "src/artistRegistry_assets/assets",
-        "dist/artistRegistry_assets/"
-      ],
-      "type": "assets"
     }
   },
   "defaults": {
