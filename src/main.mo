@@ -45,14 +45,12 @@ actor {
             artist
         );
 
-        // If there is an original value, do not update
         switch(existing) {
-            // If there are no matches, update artists
+            // If there are no matches, add artist
             case null {
                 artists := newArtists;
                 #ok(());
             };
-            // Matches pattern of type - opt Artist
             case (? v) {
                 #err(#AlreadyExists);
             };
@@ -71,13 +69,11 @@ actor {
             Principal.equal,    // Equality checker
         );
 
-        // If there is an original value, do not update
         switch(result) {
-            // If there are no matches, update artists
+            // No matches
             case null {
                 #err(#NotFound);
             };
-            // Matches pattern of type - opt Artist
             case (? v) {
                 artists := Trie.replace(
                     artists,           // Target trie
