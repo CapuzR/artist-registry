@@ -21,69 +21,100 @@ actor {
 
   public query func get(canisterId : Principal) : async ?Metadata {
 
-        Trie.find(
-            artists,           //Target Trie
-            Utils.key(canisterId),      // Key
-            Principal.equal     // Equality Checker
-        );
+    Trie.find(
+        artists,           //Target Trie
+        Utils.key(canisterId),      // Key
+        Principal.equal     // Equality Checker
+    );
         
   };
 
   public shared({caller}) func add(principal: Principal, metadata : Metadata) : async Result.Result<(), Error> {
 
         // Reject AnonymousIdentity
-        if(Principal.isAnonymous(caller)) {
-            return #err(#NotAuthorized);
+    if(Principal.isAnonymous(caller)) {
+        return #err(#NotAuthorized);
+    };
+
+    let artist: Metadata = metadata;
+
+    let (newArtist, existing) = Trie.put(
+        artists,           // Target trie
+        Utils.key(caller),      // Key
+        Principal.equal,    // Equality checker
+        artist
+    );
+
+    switch(existing) {
+        // If there are no matches, add artist
+        case null {
+            artists := newArtist;
+            #ok(());
         };
-
-        let artist: Metadata = metadata;
-
-        let (newArtists, existing) = Trie.put(
-            artists,           // Target trie
-            Utils.key(caller),      // Key
-            Principal.equal,    // Equality checker
-            artist
-        );
-
-        switch(existing) {
-            // If there are no matches, add artist
-            case null {
-                artists := newArtists;
-                #ok(());
-            };
-            case (? v) {
-                #err(#AlreadyExists);
-            };
+        case (? v) {
+            #err(#AlreadyExists);
         };
+    };
   };
 
   public shared({caller}) func remove(principal: Principal) : async Result.Result<(), Error> {
 
-      if(principal != caller or Principal.isAnonymous(caller)) {
+    if(principal != caller or Principal.isAnonymous(caller)) {
         return #err(#NotAuthorized);
-      };
+    };
 
-        let result = Trie.find(
-            artists,           // Target trie
-            Utils.key(principal),      // Key
-            Principal.equal,    // Equality checker
-        );
+    let result = Trie.find(
+        artists,           // Target trie
+        Utils.key(principal),      // Key
+        Principal.equal,    // Equality checker
+    );
 
-        switch(result) {
-            // No matches
-            case null {
-                #err(#NotFound);
-            };
-            case (? v) {
-                artists := Trie.replace(
-                    artists,           // Target trie
-                    Utils.key(principal),     // Key
-                    Principal.equal,   // Equality checker
-                    null
-                ).0;
-                #ok(());
-            };
+    switch(result) {
+        // No matches
+        case null {
+            #err(#NotFound);
         };
+        case (? v) {
+            artists := Trie.replace(
+                artists,           // Target trie
+                Utils.key(principal),     // Key
+                Principal.equal,   // Equality checker
+                null
+            ).0;
+            #ok(());
+        };
+    };
+  };
+
+  public shared({caller}) func update(principal: Principal, metadata : Metadata) : async Result.Result<(), Error> {
+
+    if(principal != caller or Principal.isAnonymous(caller)) {
+        return #err(#NotAuthorized);
+    };
+
+    let artist: Metadata = metadata;
+
+    let result = Trie.find(
+        artists,           // Target trie
+        Utils.key(principal),     // Key
+        Principal.equal           // Equality Checker
+    );
+
+    switch(result) {
+        
+        case null {
+            #err(#NotFound);
+        };
+        case (? v) {
+            artists := Trie.replace(
+                artists,
+                Utils.key(principal),
+                Principal.equal,
+                ?artist
+            ).0;
+            #ok(());
+        };
+    };
   };
 
 };
