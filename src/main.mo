@@ -7,6 +7,7 @@ import Debug "mo:base/Debug";
 import Types "./types";
 import Utils "./utils";
 import Prim "mo:prim";
+import Rels "./Rels/Rels";
 
 import aC "./actorClasses/artist/artistCanister";
 
@@ -178,12 +179,12 @@ actor {
 
 //Username functionalities should be on artistRegistry canister
 
-    stable var usernamePpal : [(Text, Principal)] = [];//username,artistPrincipal
-    let usernamePpalRels = Rels.Rels<Text, Principal>((Text.hash, Principal.hash), (Text.equal, Principal.equal), usernamePpal);
+    // stable var usernamePpal : [(Text, Principal)] = [];//username,artistPrincipal
+    // let usernamePpalRels = Rels.Rels<Text, Principal>((Text.hash, Principal.hash), (Text.equal, Principal.equal), usernamePpal);
     
-    public query func usernameExist (username : Text) : async Bool {
-        _usernameExist(username);
-    };
+    // public query func usernameExist (username : Text) : async Bool {
+    //     _usernameExist(username);
+    // };
 
     // public query func getUsernamesByText (text : Text) : async [Text] {
     //     _getUsernameByText(username);
@@ -197,22 +198,22 @@ actor {
     //     };
     // };
 
-    private func _usernameExist (username : Text) : Bool {
-        if(usernamePpal.get0Size(username) == 0) { 
-            return false;
-        } else {
-            return true;
-        };
-    };
+    // private func _usernameExist (username : Text) : Bool {
+    //     if(usernamePpal.get0Size(username) == 0) { 
+    //         return false;
+    //     } else {
+    //         return true;
+    //     };
+    // };
 
-    public shared({caller}) func assignUsername (username : Text) : async Result.Result<(), Error> {
-        if(_usernameExist(username)) {
-            return #err(#Unknown("Already exist"));
-        } else {
-            usernamePpal.put(username, caller);
-            return #ok(());
-        };
-    };
+    // public shared({caller}) func assignUsername (username : Text) : async Result.Result<(), Error> {
+    //     if(_usernameExist(username)) {
+    //         return #err(#Unknown("Already exist"));
+    //     } else {
+    //         usernamePpal.put(username, caller);
+    //         return #ok(());
+    //     };
+    // };
 //Username functionalities should be on artistRegistry canister
 
 

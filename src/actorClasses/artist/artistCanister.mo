@@ -27,13 +27,13 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
     stable var assetCanisterId : [Principal] = [];
     stable var authorized : [Principal] = [owner, artistMeta.principal_id];
 
-    public query({caller}) func authorizedArr() : async [Principal] {
+    public query({caller}) func authorizedArr() : async Result.Result<[Principal], Error> {
 
         if(not Utils.isAuthorized(caller, authorized)) {
             return #err(#NotAuthorized);
         };
 
-        return authorized;
+        return #ok(authorized);
     };
 
     public query func name() : async Text {
@@ -48,13 +48,13 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
         return Principal.fromActor(this);
     };
 
-    public query({caller}) func getAssetCanId() : async [Principal] {
+    public query({caller}) func getAssetCanId() : async  Result.Result<[Principal], Error>  {
 
         if(not Utils.isAuthorized(caller, authorized)) {
             return #err(#NotAuthorized);
         };
 
-        return assetCanisterId;
+        return #ok(assetCanisterId);
     };
 
     public shared({caller}) func createAssetCan() : async Result.Result<(), Error> {
@@ -180,7 +180,7 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
                 ).0;
                 return #ok(());
             };
-            case (#err(e)) { #err(#FailedToWrite(e)); };
+            // case (#err) { return #err(#FailedToWrite(e)); };
         };
     };
 
