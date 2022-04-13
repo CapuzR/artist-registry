@@ -2,6 +2,7 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Trie "mo:base/Trie";
 import Array "mo:base/Array";
+import Text "mo:base/Text";
 import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
@@ -223,44 +224,46 @@ actor {
   };
 //---------------END Admins
 
-//Username functionalities should be on artistRegistry canister
-
-    // stable var usernamePpal : [(Text, Principal)] = [];//username,artistPrincipal
-    // let usernamePpalRels = Rels.Rels<Text, Principal>((Text.hash, Principal.hash), (Text.equal, Principal.equal), usernamePpal);
+    stable var usernamePpal : [(Text, Principal)] = [];//username,artistPrincipal
+    let usernamePpalRels = Rels.Rels<Text, Principal>((Text.hash, Principal.hash), (Text.equal, Principal.equal), usernamePpal);
     
-    // public query func usernameExist (username : Text) : async Bool {
-    //     _usernameExist(username);
-    // };
+    public query func usernameExist (username : Text) : async Bool {
+        _usernameExist(username);
+    };
 
-    // public query func getUsernamesByText (text : Text) : async [Text] {
-    //     _getUsernameByText(username);
-    // };
+    public query func getUsernamesByPrincipal (principal : Principal) : async [Text] {
+        _getUsernamesByPrincipal(principal);
+    };
 
-    // private func _getUsernamesByText (text : Text) : [Text] {
-    //     if(usernamePpal.get0Size(username) == 0) { 
-    //         return false;
-    //     } else {
-    //         return true;
-    //     };
-    // };
+    private func _getUsernamesByPrincipal (principal : Principal) : [Text] {
+        usernamePpalRels.get1(principal);
+    };
+    
+    public query func getPrincipalByUsername (username : Text) : async [Principal] {
+        _getPrincipalByUsername(username);
+    };
 
-    // private func _usernameExist (username : Text) : Bool {
-    //     if(usernamePpal.get0Size(username) == 0) { 
-    //         return false;
-    //     } else {
-    //         return true;
-    //     };
-    // };
+    private func _getPrincipalByUsername (username : Text) : [Principal] {
+        usernamePpalRels.get0(username);
+    };
 
-    // public shared({caller}) func assignUsername (username : Text) : async Result.Result<(), Error> {
-    //     if(_usernameExist(username)) {
-    //         return #err(#Unknown("Already exist"));
-    //     } else {
-    //         usernamePpal.put(username, caller);
-    //         return #ok(());
-    //     };
-    // };
-//Username functionalities should be on artistRegistry canister
+    private func _usernameExist (username : Text) : Bool {
+        if(usernamePpalRels.get0Size(username) == 0) { 
+            return false;
+        } else {
+            return true;
+        };
+    };
 
+    public shared({caller}) func assignUsername (username : Text) : async Result.Result<(), Error> {
+        if (Principal.isAnonymous(caller)) {
+            return #err(#NotAuthorized);
+        } else if (_usernameExist(username)) {
+            return #err(#AlreadyExists);
+        } else {
+            usernamePpalRels.put(username, caller);
+            return #ok(());
+        };
+    };
 
 };
