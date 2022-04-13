@@ -128,7 +128,7 @@ actor {
   
   public shared({caller}) func createArtistCan() : async Result.Result<(), Error> {
 
-    if(not Utils.isAuthorized(caller, artistWhitelist) or Principal.notEqual(principal, caller)) {
+    if(not Utils.isAuthorized(caller, artistWhitelist)) {
         return #err(#NotAuthorized);
     };
 
@@ -199,6 +199,26 @@ actor {
 
     artistWhitelist := Array.append(artistWhitelist, principal);
     return #ok(());
+
+  };
+
+  public shared({caller}) func getWhitelistedArtists () : async Result.Result<[Principal], Error> {
+      
+    if(not Utils.isAuthorized(caller, admins)) {
+        return #err(#NotAuthorized);
+    };
+
+    return #ok(artistWhitelist);
+
+  };
+
+  public shared({caller}) func isArtistWhitelisted (principal : Principal) : async Result.Result<Bool, Error> {
+      
+    if(not Utils.isAuthorized(caller, admins)) {
+        return #err(#NotAuthorized);
+    };
+
+    return #ok(Utils.isAuthorized(principal, artistWhitelist));
 
   };
 //---------------END Admins
