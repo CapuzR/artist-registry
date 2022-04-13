@@ -44,7 +44,7 @@ module {
         };
 
         for (a in authorized.vals()) {
-            if (a == p) return true;
+            if (Principal.equal(a, p)) return true;
         };
         false;
     };

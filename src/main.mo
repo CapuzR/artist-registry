@@ -18,6 +18,8 @@ actor {
   type Error = Types.Error;
   type DetailValue = Types.DetailValue;
 
+  stable var admins : [Principal] = [Principal.fromText("m5spm-rypb4-5dh4x-cfmly-f2ngh-qjvm4-wyntp-kbhfk-5mhn7-ag65r-qae")]; 
+  stable var artistWhitelist : [Principal] = [];
   stable var artists : Trie.Trie<Principal, Metadata> = Trie.empty();
   stable var registryName : Text = "Artists registry";
 
@@ -45,7 +47,7 @@ actor {
 
   public shared({caller}) func add(metadata : Metadata) : async Result.Result<(), Error> {
 
-    if(Principal.isAnonymous(caller)) {
+    if(not Utils.isAuthorized(caller, artistWhitelist)) {
         return #err(#NotAuthorized);
     };
 
@@ -72,7 +74,7 @@ actor {
 
   public shared({caller}) func remove(principal: Principal) : async Result.Result<(), Error> {
 
-    if(principal != caller or Principal.isAnonymous(caller)) {
+    if(not Utils.isAuthorized(caller, artistWhitelist) or Principal.notEqual(principal, caller)) {
         return #err(#NotAuthorized);
     };
 
@@ -101,7 +103,7 @@ actor {
 
   public shared({caller}) func update(principal: Principal, metadata : Metadata) : async Result.Result<(), Error> {
 
-    if(principal != caller or Principal.isAnonymous(caller)) {
+    if(not Utils.isAuthorized(caller, artistWhitelist) or Principal.notEqual(principal, caller)) {
         return #err(#NotAuthorized);
     };
 
@@ -126,7 +128,7 @@ actor {
   
   public shared({caller}) func createArtistCan() : async Result.Result<(), Error> {
 
-    if(Principal.isAnonymous(caller)) {
+    if(not Utils.isAuthorized(caller, artistWhitelist) or Principal.notEqual(principal, caller)) {
         return #err(#NotAuthorized);
     };
 
@@ -187,6 +189,19 @@ actor {
         };
     };
   };
+
+//-------------------Admins
+  public shared({caller}) func whitelistArtists (principal : [Principal]) : async Result.Result<(), Error> {
+      
+    if(not Utils.isAuthorized(caller, admins)) {
+        return #err(#NotAuthorized);
+    };
+
+    artistWhitelist := Array.append(artistWhitelist, principal);
+    return #ok(());
+
+  };
+//---------------END Admins
 
 //Username functionalities should be on artistRegistry canister
 
