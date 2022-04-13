@@ -3,6 +3,7 @@ import Result "mo:base/Result";
 import Trie "mo:base/Trie";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
+import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 import Types "./types";
 import Utils "./utils";
@@ -30,6 +31,16 @@ actor {
         Utils.key(principalId),
         Principal.equal
     ); 
+  };
+
+  public query({caller}) func getAll() : async Result.Result<[(Principal,Metadata)], Error> {
+
+    if(Principal.isAnonymous(caller)) {
+        return #err(#NotAuthorized);
+    };
+
+    let artistIter : Iter.Iter<(Principal, Metadata)> = Trie.iter(artists);
+    #ok(Iter.toArray(artistIter));
   };
 
   public shared({caller}) func add(metadata : Metadata) : async Result.Result<(), Error> {
