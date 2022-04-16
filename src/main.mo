@@ -40,6 +40,18 @@ actor {
         ); 
     };
 
+
+    public query func getByUsername(username : Text) : async ?Metadata {
+    
+        let principalId : Principal = _getPrincipalByUsername(username)[0];
+    
+        Trie.find(
+            artists,
+            Utils.key(principalId),
+            Principal.equal
+        ); 
+    };
+    
     public query({caller}) func getAll() : async Result.Result<[(Principal,Metadata)], Error> {
 
         if(Principal.isAnonymous(caller)) {
