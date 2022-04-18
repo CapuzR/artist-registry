@@ -89,6 +89,7 @@ actor {
                         switch(d.1){
                             case(#Text(u)) {
                                 usernamePpalRels.put(u, caller);
+                                break l;
                             };
                             case (_) {
                                 break l;
