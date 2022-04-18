@@ -1,6 +1,6 @@
 ## Add
 
-` dfx canister call artistRegistry add '(record {thumbnail="lol"; name="lol"; frontend=null; description="lol"; details=vec {record {"lol"; variant {Text="lol"}}}; principal_id=principal "m5spm-rypb4-5dh4x-cfmly-f2ngh-qjvm4-wyntp-kbhfk-5mhn7-ag65r-qae"})' `
+` dfx canister call artistRegistry add '(record {thumbnail="lol"; name="lol"; frontend=null; description="lol"; details=vec {record {"username"; variant {Text="capuzr"}}}; principal_id=principal "exr4a-6lhtv-ftrv4-hf5dc-co5x7-2fgz7-mlswm-q3bjo-hehbc-lmmw4-tqe"})' `
 
 ## Get
 
@@ -8,4 +8,4 @@
 
 ## Remove
 
-` dfx canister call artistRegistry remove '(principal "m5spm-rypb4-5dh4x-cfmly-f2ngh-qjvm4-wyntp-kbhfk-5mhn7-ag65r-qae")' `
+` dfx canister call artistRegistry remove '(principal "exr4a-6lhtv-ftrv4-hf5dc-co5x7-2fgz7-mlswm-q3bjo-hehbc-lmmw4-tqe")' `

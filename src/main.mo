@@ -19,8 +19,8 @@ actor {
     type Error = Types.Error;
     type DetailValue = Types.DetailValue;
 
-    stable var admins : [Principal] = [Principal.fromText("m5spm-rypb4-5dh4x-cfmly-f2ngh-qjvm4-wyntp-kbhfk-5mhn7-ag65r-qae")]; 
-    stable var artistWhitelist : [Principal] = [];
+    stable var admins : [Principal] = [Principal.fromText("exr4a-6lhtv-ftrv4-hf5dc-co5x7-2fgz7-mlswm-q3bjo-hehbc-lmmw4-tqe")]; 
+    stable var artistWhitelist : [Principal] = [Principal.fromText("exr4a-6lhtv-ftrv4-hf5dc-co5x7-2fgz7-mlswm-q3bjo-hehbc-lmmw4-tqe")];
 
     stable var usernamePpal : [(Text, Principal)] = [];//username,artistPrincipal
     let usernamePpalRels = Rels.Rels<Text, Principal>((Text.hash, Principal.hash), (Text.equal, Principal.equal), usernamePpal);
@@ -43,13 +43,17 @@ actor {
 
     public query func getByUsername(username : Text) : async ?Metadata {
     
-        let principalId : Principal = _getPrincipalByUsername(username)[0];
+        let principalIds : [Principal] = _getPrincipalByUsername(username);
     
-        Trie.find(
-            artists,
-            Utils.key(principalId),
-            Principal.equal
-        ); 
+        if(principalIds.size() != 0) {
+            return Trie.find(
+                artists,
+                Utils.key(principalIds[0]),
+                Principal.equal
+            ); 
+        } else {
+            return null;
+        };
     };
     
     public query({caller}) func getAll() : async Result.Result<[(Principal,Metadata)], Error> {
@@ -80,6 +84,18 @@ actor {
         switch(existing) {
             case null {
                 artists := newArtist;
+                label l for(d in metadata.details.vals()) {
+                    if(d.0 == "username") {
+                        switch(d.1){
+                            case(#Text(u)) {
+                                usernamePpalRels.put(u, caller);
+                            };
+                            case (_) {
+                                break l;
+                            };
+                        };
+                    }
+                };
                 #ok(());
             };
             case (? v) {
@@ -111,14 +127,18 @@ actor {
                     Principal.equal,
                     null
                 ).0;
+                let username = usernamePpalRels.get1(caller);
+                if(username.size() != 0) {
+                    usernamePpalRels.delete(username[0], caller);
+                };
                 #ok(());
             };
         };
     };
 
-    public shared({caller}) func update(principal: Principal, metadata : Metadata) : async Result.Result<(), Error> {
+    public shared({caller}) func update(metadata : Metadata) : async Result.Result<(), Error> {
 
-        if(not Utils.isAuthorized(caller, artistWhitelist) or Principal.notEqual(principal, caller)) {
+        if(not Utils.isAuthorized(caller, artistWhitelist) or Principal.notEqual(metadata.principal_id, caller)) {
             return #err(#NotAuthorized);
         };
 
@@ -145,6 +165,18 @@ actor {
                     Principal.equal,
                     ?artist
                 ).0;
+                label l for(d in artist.details.vals()) {
+                    if(d.0 == "username") {
+                        switch(d.1){
+                            case(#Text(u)) {
+                                usernamePpalRels.put(u, principal);
+                            };
+                            case (_) {
+                                break l;
+                            };
+                        };
+                    }
+                };
                 #ok(());
             };
         };
