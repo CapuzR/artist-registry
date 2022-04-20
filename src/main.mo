@@ -201,6 +201,7 @@ actor {
                     } else if (d.0 == "avatarAsset") {
                         switch(d.1){
                             case(#Slice(a)) {
+                                await _deleteImage(Principal.toText(artist.principal_id));
                                 await _storeImage(Principal.toText(artist.principal_id), Blob.fromArray(a));
                                 break l;
                             };
