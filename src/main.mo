@@ -149,6 +149,7 @@ actor {
                     Principal.equal,
                     null
                 ).0;
+                await _deleteImage(Principal.toText(principal));
                 let username = usernamePpalRels.get1(caller);
                 if(username.size() != 0) {
                     usernamePpalRels.delete(username[0], caller);
@@ -164,10 +165,10 @@ actor {
             return #err(#NotAuthorized);
         };
 
-        _update(caller, metadata);
+        await _update(caller, metadata);
     };
 
-    private func _update(principal: Principal, artist : Metadata) : Result.Result<(), Error> {
+    private func _update(principal: Principal, artist : Metadata) : async Result.Result<(), Error> {
 
         let result = Trie.find(
             artists,           // Target trie
@@ -197,7 +198,17 @@ actor {
                                 break l;
                             };
                         };
-                    }
+                    } else if (d.0 == "avatarAsset") {
+                        switch(d.1){
+                            case(#Slice(a)) {
+                                await _storeImage(Principal.toText(artist.principal_id), Blob.fromArray(a));
+                                break l;
+                            };
+                            case (_) {
+                                break l;
+                            };
+                        };
+                    };
                 };
                 #ok(());
             };
@@ -235,7 +246,7 @@ actor {
                     principal_id = v.principal_id;
                     details = buff.toArray();
                 };
-                _update(caller, artist);
+                await _update(caller, artist);
             };
             case null {
                 return #err(#NotFound);
@@ -303,6 +314,21 @@ actor {
                 content_encoding = "identity";
                 content = postAsset;
                 sha256 = null;
+        });
+
+    };
+
+    private func _deleteImage(name : Text) : async () {
+
+        let key = Text.concat(name, ".jpeg");
+        
+        let aCActor = actor(Principal.toText(assetCanisterIds[0])): actor { 
+            delete_asset : shared ({
+                key : Text;
+            }) -> async ()
+        };
+        await aCActor.delete_asset({
+                key = key;
         });
 
     };
