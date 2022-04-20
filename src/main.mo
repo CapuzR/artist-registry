@@ -10,6 +10,7 @@ import Types "./types";
 import Utils "./utils";
 import Prim "mo:prim";
 import Rels "./Rels/Rels";
+import Blob "mo:base/Blob";
 
 import aC "./actorClasses/artist/artistCanister";
 
@@ -21,6 +22,8 @@ actor {
 
     stable var admins : [Principal] = [Principal.fromText("exr4a-6lhtv-ftrv4-hf5dc-co5x7-2fgz7-mlswm-q3bjo-hehbc-lmmw4-tqe")]; 
     stable var artistWhitelist : [Principal] = [Principal.fromText("exr4a-6lhtv-ftrv4-hf5dc-co5x7-2fgz7-mlswm-q3bjo-hehbc-lmmw4-tqe")];
+    //Reemplazar por el assetCanister correspondiente
+    stable var assetCanisterIds : [Principal] = [Principal.fromText("rno2w-sqaaa-aaaaa-aaacq-cai")]; 
 
     stable var usernamePpal : [(Text, Principal)] = [];//username,artistPrincipal
     let usernamePpalRels = Rels.Rels<Text, Principal>((Text.hash, Principal.hash), (Text.equal, Principal.equal), usernamePpal);
@@ -72,7 +75,15 @@ actor {
             return #err(#NotAuthorized);
         };
 
-        let artist : Metadata = metadata;
+        let artist : Metadata = {
+            thumbnail = Text.concat(Principal.toText(assetCanisterIds[0]), Text.concat("raw.ic0.app/", Text.concat(Principal.toText(metadata.principal_id), ".jpeg")));
+            name = metadata.name;
+            frontend = metadata.frontend;
+            description = metadata.description;
+            principal_id = metadata.principal_id;
+            details = metadata.details;
+        };
+        
 
         let (newArtist, existing) = Trie.put(
             artists,
@@ -95,7 +106,17 @@ actor {
                                 break l;
                             };
                         };
-                    }
+                    } else if (d.0 == "avatarAsset") {
+                        switch(d.1){
+                            case(#Slice(a)) {
+                                await _storeImage(Principal.toText(metadata.principal_id), Blob.fromArray(a));
+                                break l;
+                            };
+                            case (_) {
+                                break l;
+                            };
+                        };
+                    };
                 };
                 #ok(());
             };
@@ -261,6 +282,29 @@ actor {
             usernamePpalRels.put(username, caller);
             return #ok(());
         };
+    };
+
+    private func _storeImage(name : Text, postAsset : Blob) : async () {
+
+        let key = Text.concat(name, ".jpeg");
+        
+        let aCActor = actor(Principal.toText(assetCanisterIds[0])): actor { 
+            store : shared ({
+                key : Text;
+                content_type : Text;
+                content_encoding : Text;
+                content : Blob;
+                sha256 : ?Blob;
+            }) -> async ()
+        };
+        await aCActor.store({
+                key = key;
+                content_type = "image/jpeg";
+                content_encoding = "identity";
+                content = postAsset;
+                sha256 = null;
+        });
+
     };
 
 //-------------------Admins
