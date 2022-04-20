@@ -76,7 +76,7 @@ actor {
         };
 
         let artist : Metadata = {
-            thumbnail = Text.concat(Principal.toText(assetCanisterIds[0]), Text.concat("raw.ic0.app/", Text.concat(Principal.toText(metadata.principal_id), ".jpeg")));
+            thumbnail = Text.concat(Principal.toText(assetCanisterIds[0]), Text.concat(".raw.ic0.app/", Text.concat(Principal.toText(metadata.principal_id), ".jpeg")));
             name = metadata.name;
             frontend = metadata.frontend;
             description = metadata.description;
