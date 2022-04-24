@@ -43,7 +43,6 @@ actor {
         ); 
     };
 
-
     public query func getByUsername(username : Text) : async ?Metadata {
     
         let principalIds : [Principal] = _getPrincipalByUsername(username);
@@ -107,9 +106,19 @@ actor {
                             };
                         };
                     } else if (d.0 == "avatarAsset") {
-                        switch(d.1){
+                        switch(d.1) {
                             case(#Slice(a)) {
-                                await _storeImage(Principal.toText(metadata.principal_id), Blob.fromArray(a));
+                                await _storeImage(Text.concat("A", Principal.toText(metadata.principal_id)), Blob.fromArray(a));
+                                break l;
+                            };
+                            case (_) {
+                                break l;
+                            };
+                        };
+                    } else if (d.0 == "bannerAsset") {
+                        switch(d.1) {
+                            case(#Slice(a)) {
+                                await _storeImage(Text.concat("G", Principal.toText(metadata.principal_id)), Blob.fromArray(a));
                                 break l;
                             };
                             case (_) {
@@ -149,7 +158,8 @@ actor {
                     Principal.equal,
                     null
                 ).0;
-                await _deleteImage(Principal.toText(principal));
+                await _deleteImage(Text.concat("A", Principal.toText(principal)));
+                await _deleteImage(Text.concat("A", Principal.toText(principal)));
                 let username = usernamePpalRels.get1(caller);
                 if(username.size() != 0) {
                     usernamePpalRels.delete(username[0], caller);
@@ -200,15 +210,54 @@ actor {
                         };
                     } else if (d.0 == "avatarAsset") {
                         switch(d.1){
-                            case(#Slice(a)) {
-                                await _deleteImage(Principal.toText(artist.principal_id));
-                                await _storeImage(Principal.toText(artist.principal_id), Blob.fromArray(a));
-                                break l;
+                            case (#Vec(vB)){
+                                switch(vB[1]) {
+                                    case(#True) {
+                                        switch (vB[0]) {
+                                            case(#Slice(a)) {
+                                                await _deleteImage(Text.concat("A", Principal.toText(artist.principal_id)));
+                                                await _storeImage(Text.concat("A", Principal.toText(artist.principal_id)), Blob.fromArray(a));
+                                                break l;
+                                            };
+                                            case (_) {
+                                                break l;
+                                            };
+                                        };
+                                    };
+                                    case (_) {
+                                        break l;
+                                    };
+                                };
                             };
                             case (_) {
                                 break l;
                             };
                         };
+                    } else if (d.0 == "bannerAsset") {
+                            switch(d.1){
+                                case (#Vec(vB)){
+                                    switch(vB[1]) {
+                                        case(#True) {
+                                            switch (vB[0]) {
+                                                case (#Slice(a)) {
+                                                    await _deleteImage(Text.concat("B", Principal.toText(artist.principal_id)));
+                                                    await _storeImage(Text.concat("B", Principal.toText(artist.principal_id)), Blob.fromArray(a));
+                                                    break l;
+                                                };
+                                                case (_) {
+                                                    break l;
+                                                };
+                                            };
+                                        };
+                                        case (_) {
+                                            break l;
+                                        };
+                                    };
+                                };
+                                case (_) {
+                                    break l;
+                                };
+                            };
                     };
                 };
                 #ok(());
@@ -383,5 +432,25 @@ actor {
     };
     
 //---------------END Admins
+
+//---------------Upgrades
+    private func getAllUsernamePpalRels () : [(Text, Principal)] {
+        usernamePpalRels.getAll();
+    };
+
+
+    system func preupgrade() {
+
+        usernamePpal := getAllUsernamePpalRels();
+
+    };
+
+    system func postupgrade() {
+        
+        usernamePpal := [];
+
+    };
+
+//-----------End upgrades
 
 };
