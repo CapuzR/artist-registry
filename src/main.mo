@@ -22,8 +22,9 @@ actor {
 
     stable var admins : [Principal] = [Principal.fromText("exr4a-6lhtv-ftrv4-hf5dc-co5x7-2fgz7-mlswm-q3bjo-hehbc-lmmw4-tqe")]; 
     stable var artistWhitelist : [Principal] = [Principal.fromText("exr4a-6lhtv-ftrv4-hf5dc-co5x7-2fgz7-mlswm-q3bjo-hehbc-lmmw4-tqe")];
+
     //Reemplazar por el assetCanister correspondiente
-    stable var assetCanisterIds : [Principal] = [Principal.fromText("rno2w-sqaaa-aaaaa-aaacq-cai")]; 
+    stable var assetCanisterIds : [Principal] = [Principal.fromText("rno2w-sqaaa-aaaaa-aaacq-cai")];
 
     stable var usernamePpal : [(Text, Principal)] = [];//username,artistPrincipal
     let usernamePpalRels = Rels.Rels<Text, Principal>((Text.hash, Principal.hash), (Text.equal, Principal.equal), usernamePpal);
@@ -284,9 +285,10 @@ actor {
                 if(Utils.isInDetails(v.details, "canisterId")) { return #err(#AlreadyExists); };
 
                 let artistCan = await aC.ArtistCanister(v);
-                let canisterId = await artistCan.getCanisterId();
+                let canIds= await artistCan.getCanIds();
                 let buff : Buffer.Buffer<(Text, DetailValue)> = Utils.arrayToBuffer(v.details);
-                buff.add(("canisterId", #Principal(canisterId)));
+                buff.add(("canisterId", #Principal(canIds[0])));
+                buff.add(("assetCanId", #Principal(canIds[1])));
 
                 let artist: Metadata = {
                     thumbnail = v.thumbnail;
@@ -303,7 +305,6 @@ actor {
             };
         };
     };
-
 
 //Username
     public query func usernameExist (username : Text) : async Bool {

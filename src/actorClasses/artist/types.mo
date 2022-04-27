@@ -2,7 +2,6 @@
 module {
 
     public type ArtBasics = {
-        thumbnail : Text;
         title: Text;
         description: Text;
         artType: Text;
@@ -10,22 +9,26 @@ module {
         details: [(Text, DetailValue)];
     };
 
-    // public type ArtPrivate = {
-    //     thumbnail : Text;
-    //     title: Text;
-    //     description: Text;
-    //     artType: Text;
-    //     tags: [Text];
-    //     details: [(Text, DetailValue)];
-    // };
+    public type ArtPrivate = {
+        thumbnail : Text;
+        title: Text;
+        description: Text;
+        artType: Text;
+        tags: [Text];
+        asset: Blob;
+        details: [(Text, DetailValue)];
+    };
 
     public type Art = {
         artBasics: ArtBasics;
         createdAt: Int;
+        thumbnail : Text;
     };
 
     public type ArtUpdate = {
         artBasics: ArtBasics;
+        thumbAsset: Blob;
+        updateThumbnail : Bool;
     };
 
 

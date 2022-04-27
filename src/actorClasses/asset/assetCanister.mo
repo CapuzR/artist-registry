@@ -225,7 +225,7 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
         state.assets.delete(a.key);
     };
 
-    public shared query func get({
+    public shared query({caller}) func get({
         key              : AssetStorage.Key;
         accept_encodings : [Text];
     }) : async {
@@ -235,22 +235,27 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
         content_encoding : Text;
         total_length     : Nat;
     } {
-        switch (state.assets.get(key)) {
-            case (null) throw Error.reject("asset not found: " # key);
-            case (? asset) {
-                for (e in accept_encodings.vals()) {
-                    switch (asset.encodings.get(e)) {
-                        case (null) {};
-                        case (? encoding) {
-                            return {
-                                content          = encoding.content_chunks[0];
-                                sha256           = ?encoding.sha256;
-                                content_type     = asset.content_type;
-                                content_encoding = e;
-                                total_length     = encoding.total_length;
-                            };
+        switch (state.isAuthorized(caller)) {
+            case (#err(e)) throw Error.reject(e);
+            case (#ok()) {
+                switch (state.assets.get(key)) {
+                    case (null) throw Error.reject("asset not found: " # key);
+                    case (? asset) {
+                        for (e in accept_encodings.vals()) {
+                            switch (asset.encodings.get(e)) {
+                                case (null) {};
+                                case (? encoding) {
+                                    return {
+                                        content          = encoding.content_chunks[0];
+                                        sha256           = ?encoding.sha256;
+                                        content_type     = asset.content_type;
+                                        content_encoding = e;
+                                        total_length     = encoding.total_length;
+                                    };
+                                };
+                            }
                         };
-                    }
+                    };
                 };
             };
         };
@@ -271,51 +276,56 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
     public shared query({caller}) func http_request(
         r : AssetStorage.HttpRequest,
     ) : async AssetStorage.HttpResponse {
-        switch (state.isAuthorized(caller)) {
-            case (#err(e)) throw Error.reject(e);
-            case (#ok()) {
-                let encodings = Buffer.Buffer<Text>(r.headers.size());
-                for ((k, v) in r.headers.vals()) {
-                    if (textToLower(k) == "accept-encoding") {
-                        for (v in Text.split(v, #text(","))) {
-                            encodings.add(v);
-                        };
+        let assetKey = (Iter.toArray(Text.split(r.url, #text("/"))))[Text.size(r.url)-1];
+        if(Text.startsWith(assetKey, #text("T"))) {
+            let encodings = Buffer.Buffer<Text>(r.headers.size());
+            for ((k, v) in r.headers.vals()) {
+                if (textToLower(k) == "accept-encoding") {
+                    for (v in Text.split(v, #text(","))) {
+                        encodings.add(v);
                     };
                 };
-                
-                encodings.add("identity");
-                
-                // TODO: url decode + remove path.
-                switch (state.assets.get(r.url)) {
-                    case (null) {};
-                    case (? asset) {
-                        for (encoding_name in encodings.vals()) {
-                            switch (asset.encodings.get(encoding_name)) {
-                                case (null) {};
-                                case (? encoding) {
-                                    let headers = [
-                                        ("Content-Type", asset.content_type),
-                                        ("Content-Encoding", encoding_name),
-                                    ];
-                                    return {
-                                        body               = encoding.content_chunks[0];
-                                        headers;
-                                        status_code        = 200;
-                                        streaming_strategy = _create_strategy(
-                                            r.url, 0, asset, encoding_name, encoding,
-                                        );
-                                    };
+            };
+            
+            encodings.add("identity");
+            
+            // TODO: url decode + remove path.
+            switch (state.assets.get(r.url)) {
+                case (null) {};
+                case (? asset) {
+                    for (encoding_name in encodings.vals()) {
+                        switch (asset.encodings.get(encoding_name)) {
+                            case (null) {};
+                            case (? encoding) {
+                                let headers = [
+                                    ("Content-Type", asset.content_type),
+                                    ("Content-Encoding", encoding_name),
+                                ];
+                                return {
+                                    body               = encoding.content_chunks[0];
+                                    headers;
+                                    status_code        = 200;
+                                    streaming_strategy = _create_strategy(
+                                        r.url, 0, asset, encoding_name, encoding,
+                                    );
                                 };
                             };
                         };
                     };
                 };
-                {
-                    body               = Blob.toArray(Text.encodeUtf8("asset not found: " # r.url));
-                    headers            = [];
-                    streaming_strategy = null;
-                    status_code        = 404;
-                };
+            };
+            return {
+                body               = Blob.toArray(Text.encodeUtf8("asset not found: " # r.url));
+                headers            = [];
+                streaming_strategy = null;
+                status_code        = 404;
+            };
+        } else {
+            return {
+                body               = Blob.toArray(Text.encodeUtf8("asset not found: " # r.url));
+                headers            = [];
+                streaming_strategy = null;
+                status_code        = 404;
             };
         };
     };
