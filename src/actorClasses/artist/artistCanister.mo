@@ -61,7 +61,7 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
         return [Principal.fromActor(this), assetCanisterIds[0]];
     };
 
-    public shared({caller}) func createAssetCan () : async Result.Result<(), Error> {
+    public shared({caller}) func createAssetCan () : async Result.Result<(Principal, Principal), Error> {
 
         if(not Utils.isAuthorized(caller, authorized)) {
             return #err(#NotAuthorized);
@@ -69,11 +69,11 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
         
         if(assetCanisterIds.size() != 0) { return #err(#AlreadyExists); };
 
-        let assetCan = await assetC.Assets(owner);
-        let canisterId = await assetCan.getCanisterId();
-        assetCanisterIds := Array.append(assetCanisterIds, [canisterId]);
+        let assetCan = await assetC.Assets(canisterMeta.principal_id);
+        let assetCanisterId = await assetCan.getCanisterId();
+        assetCanisterIds := Array.append(assetCanisterIds, [assetCanisterId]);
 
-        return #ok(());
+        return #ok((Principal.fromActor(this), assetCanisterId));
 
     };
 

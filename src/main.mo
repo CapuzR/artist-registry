@@ -266,7 +266,7 @@ actor {
         };
     };
 
-    public shared({caller}) func createArtistCan() : async Result.Result<(), Error> {
+    public shared({caller}) func createArtistCan() : async Result.Result<(Principal, Principal), Error> {
 
         if(not Utils.isAuthorized(caller, artistWhitelist)) {
             return #err(#NotAuthorized);
@@ -285,20 +285,28 @@ actor {
                 if(Utils.isInDetails(v.details, "canisterId")) { return #err(#AlreadyExists); };
 
                 let artistCan = await aC.ArtistCanister(v);
-                let canIds= await artistCan.getCanIds();
-                let buff : Buffer.Buffer<(Text, DetailValue)> = Utils.arrayToBuffer(v.details);
-                buff.add(("canisterId", #Principal(canIds[0])));
-                buff.add(("assetCanId", #Principal(canIds[1])));
+                 
+                switch(await artistCan.createAssetCan()) {
+                    case (#ok canPpals) {
+                        let (canisterId, assetCanId)  : (Principal, Principal) = canPpals;
+                        let buff : Buffer.Buffer<(Text, DetailValue)> = Utils.arrayToBuffer(v.details);
+                        buff.add(("canisterId", #Principal(canisterId)));
+                        buff.add(("assetCanId", #Principal(assetCanId)));
 
-                let artist: Metadata = {
-                    thumbnail = v.thumbnail;
-                    name = v.name;
-                    frontend = null;
-                    description = v.description;
-                    principal_id = v.principal_id;
-                    details = buff.toArray();
+                        let artist: Metadata = {
+                            thumbnail = v.thumbnail;
+                            name = v.name;
+                            frontend = null;
+                            description = v.description;
+                            principal_id = v.principal_id;
+                            details = buff.toArray();
+                        };
+                        let dummy = await _update(caller, artist);
+                        #ok((canisterId, assetCanId));
+
+                    };
+                    case (#err e) { return #err(e)};
                 };
-                await _update(caller, artist);
             };
             case null {
                 return #err(#NotFound);
