@@ -13,18 +13,21 @@ import Rels "./Rels/Rels";
 import Blob "mo:base/Blob";
 
 import aC "./actorClasses/artist/artistCanister";
+import assetC "./actorClasses/asset/assetCanister";
 
-actor {
+shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
+
+//-------------------Types
 
     type Metadata = Types.Metadata;
     type Error = Types.Error;
     type DetailValue = Types.DetailValue;
 
-    stable var admins : [Principal] = [Principal.fromText("exr4a-6lhtv-ftrv4-hf5dc-co5x7-2fgz7-mlswm-q3bjo-hehbc-lmmw4-tqe")]; 
-    stable var artistWhitelist : [Principal] = [Principal.fromText("exr4a-6lhtv-ftrv4-hf5dc-co5x7-2fgz7-mlswm-q3bjo-hehbc-lmmw4-tqe")];
+//-------------------State
+    stable var admins : [Principal] = initOptions.admins; 
+    stable var artistWhitelist : [Principal] = initOptions.artistWhitelist;
 
-    //Reemplazar por el assetCanister correspondiente
-    stable var assetCanisterIds : [Principal] = [Principal.fromText("rno2w-sqaaa-aaaaa-aaacq-cai")];
+    stable var assetCanisterIds : [Principal] = [];
 
     stable var usernamePpal : [(Text, Principal)] = [];//username,artistPrincipal
     let usernamePpalRels = Rels.Rels<Text, Principal>((Text.hash, Principal.hash), (Text.equal, Principal.equal), usernamePpal);
@@ -32,6 +35,8 @@ actor {
     stable var artists : Trie.Trie<Principal, Metadata> = Trie.empty();
     stable var registryName : Text = "Artists registry";
 
+//-------------------Registry
+    
     public query func name() : async Text {
         return registryName;
     };
@@ -131,7 +136,7 @@ actor {
                 #ok(());
             };
             case (? v) {
-                #err(#AlreadyExists);
+                #err(#Unknown("Already exists"));
             };
         };
     };
@@ -150,7 +155,7 @@ actor {
 
         switch(result) {
             case null {
-                #err(#NotFound);
+                #err(#NonExistentItem);
             };
             case (? v) {
                 artists := Trie.replace(
@@ -190,7 +195,7 @@ actor {
         switch(result) {
             
             case null {
-                #err(#NotFound);
+                #err(#NonExistentItem);
             };
             case (? v) {
                 artists := Trie.replace(
@@ -282,7 +287,7 @@ actor {
             case (? v) {
 
                 if(v.principal_id != caller) { return #err(#NotAuthorized); };
-                if(Utils.isInDetails(v.details, "canisterId")) { return #err(#AlreadyExists); };
+                if(Utils.isInDetails(v.details, "canisterId")) { return #err(#Unknown("Already exists")); };
 
                 let artistCan = await aC.ArtistCanister(v);
                  
@@ -309,12 +314,13 @@ actor {
                 };
             };
             case null {
-                return #err(#NotFound);
+                return #err(#NonExistentItem);
             };
         };
     };
 
-//Username
+//-------------------Username
+    
     public query func usernameExist (username : Text) : async Bool {
         _usernameExist(username);
     };
@@ -347,13 +353,18 @@ actor {
         if (Principal.isAnonymous(caller)) {
             return #err(#NotAuthorized);
         } else if (_usernameExist(username)) {
-            return #err(#AlreadyExists);
+            return #err(#Unknown("Already exists"));
         } else {
             usernamePpalRels.put(username, caller);
             return #ok(());
         };
     };
 
+    private func getAllUsernamePpalRels () : [(Text, Principal)] {
+        usernamePpalRels.getAll();
+    };
+
+//-------------------Assets
     private func _storeImage(name : Text, postAsset : Blob) : async () {
 
         let key = Text.concat(name, ".jpeg");
@@ -393,6 +404,27 @@ actor {
     };
 
 //-------------------Admins
+
+    public shared({caller}) func createAssetCan () : async Result.Result<(Principal, Principal), Error> {
+
+        if(not Utils.isAuthorized(caller, admins)) {
+            return #err(#NotAuthorized);
+        };
+
+        if(assetCanisterIds.size() != 0) { return #err(#Unknown("Already exists")); };
+
+        let tb : Buffer.Buffer<Principal> = Buffer.Buffer(1);
+        let assetCan = await assetC.Assets(caller);
+        let assetCanisterId = await assetCan.getCanisterId();
+
+        tb.add(assetCanisterId);
+
+        assetCanisterIds := tb.toArray();
+
+        return #ok((Principal.fromActor(this), assetCanisterId));
+
+    };
+
     public shared({caller}) func whitelistArtists (principal : [Principal]) : async Result.Result<(), Error> {
         
         if(not Utils.isAuthorized(caller, admins)) {
@@ -440,13 +472,7 @@ actor {
         //   Debug.print(debug_show(Prim.rts_heap_size()));
     };
     
-//---------------END Admins
-
 //---------------Upgrades
-    private func getAllUsernamePpalRels () : [(Text, Principal)] {
-        usernamePpalRels.getAll();
-    };
-
 
     system func preupgrade() {
 
@@ -459,7 +485,5 @@ actor {
         usernamePpal := [];
 
     };
-
-//-----------End upgrades
 
 };

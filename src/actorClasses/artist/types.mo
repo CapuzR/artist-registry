@@ -56,13 +56,9 @@ module {
     };
 
     public type Error = {
-        #AlreadyExists;
         #NotAuthorized;
-        #Unauthorized;
-        #NotFound;
-        #InvalidRequest;
-        #AuthorizedPrincipalLimitReached : Nat;
-        #Immutable;
-        #FailedToWrite : Text;
+        #NonExistentItem;
+        #BadParameters;
+        #Unknown : Text;
     };
 }

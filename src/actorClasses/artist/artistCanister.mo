@@ -66,18 +66,24 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
         if(not Utils.isAuthorized(caller, authorized)) {
             return #err(#NotAuthorized);
         };
-        
-        if(assetCanisterIds.size() != 0) { return #err(#AlreadyExists); };
 
+        if(assetCanisterIds.size() != 0) { return #err(#Unknown("Already exists")); };
+
+        let tb : Buffer.Buffer<Principal> = Buffer.Buffer(1);
         let assetCan = await assetC.Assets(canisterMeta.principal_id);
         let assetCanisterId = await assetCan.getCanisterId();
-        assetCanisterIds := Array.append(assetCanisterIds, [assetCanisterId]);
+
+        for (acId in assetCanisterIds.vals()) {
+            tb.add(acId);
+        };
+
+        assetCanisterIds := tb.toArray();
 
         return #ok((Principal.fromActor(this), assetCanisterId));
 
     };
 
-    //Art...............................................................................
+//Art...............................................................................
     public shared({caller}) func createArt (art : ArtUpdate) : async Result.Result<Text, Error> {
 
         let g = Source.Source();
@@ -107,7 +113,7 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
                 #ok(artId);
             };
             case (? v) {
-                #err(#AlreadyExists);
+                #err(#Unknown("Already exists"));
             };
         };
     };
@@ -126,7 +132,7 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
         
         switch (result) {
             case null {
-                #err(#NotFound)
+                #err(#NonExistentItem)
             };
             case (? r) {
                 #ok(r);
@@ -148,7 +154,7 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
 
         switch(result) {
             case null {
-                #err(#NotFound)
+                #err(#NonExistentItem)
             };
             case (? v) {
                 let newArt : Art = {
@@ -170,7 +176,6 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
                 };
                 return #ok(());
             };
-            // case (#err) { return #err(#FailedToWrite(e)); };
         };
     };
 
@@ -188,7 +193,7 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
 
         switch(result) {
             case null {
-                #err(#NotFound)
+                #err(#NonExistentItem)
             };
             case (? v) {
                 arts := Trie.replace(
