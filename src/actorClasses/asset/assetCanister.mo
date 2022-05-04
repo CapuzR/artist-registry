@@ -12,6 +12,7 @@ import Result "mo:base/Result";
 import SHA256 "mo:sha/SHA256";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
+import Debug "mo:base/Debug";
 import Principal "mo:base/Principal";
 
 import Prim "mo:⛔"; // toLower...
@@ -273,11 +274,26 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
         {content = []};
     };
 
+
+    private func _getAssetKey(path : Text) : Text {
+
+        var assetKey = (Iter.toArray(Text.split(path, #text("/"))))[Iter.toArray(Text.split(path, #text("/"))).size()-1];
+
+        if (Text.contains(assetKey, #text("?"))) {
+            Debug.print(debug_show("Interrogacion"));
+            assetKey := (Iter.toArray(Text.split(assetKey, #text("?"))))[0];
+        };
+
+        return assetKey;
+    };
+
     public shared query({caller}) func http_request(
         r : AssetStorage.HttpRequest,
     ) : async AssetStorage.HttpResponse {
-        let assetKey = (Iter.toArray(Text.split(r.url, #text("/"))))[Text.size(r.url)-1];
-        if(Text.startsWith(assetKey, #text("T"))) {
+        
+        var assetKey = _getAssetKey(r.url);
+        
+        if(Text.startsWith(assetKey, #text("A")) or Text.startsWith(assetKey, #text("B"))) {
             let encodings = Buffer.Buffer<Text>(r.headers.size());
             for ((k, v) in r.headers.vals()) {
                 if (textToLower(k) == "accept-encoding") {
@@ -290,7 +306,7 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
             encodings.add("identity");
             
             // TODO: url decode + remove path.
-            switch (state.assets.get(r.url)) {
+            switch (state.assets.get(assetKey)) {
                 case (null) {};
                 case (? asset) {
                     for (encoding_name in encodings.vals()) {

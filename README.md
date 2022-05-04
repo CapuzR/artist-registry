@@ -21,3 +21,9 @@ dfx canister call artistRegistry createAssetCan
 ```bash
 dfx canister call artistRegistry name
 ```
+
+# Whitelist
+
+```bash
+dfx canister call artistRegistry whitelistArtists '(vec { principal "bum4c-sxl2u-t64yr-crqjb-q5ovk-fwu7b-m6fnw-7z2vy-mh3f3-delh5-wae" })'
+```
