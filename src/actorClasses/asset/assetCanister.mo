@@ -277,10 +277,15 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
 
     private func _getAssetKey(path : Text) : Text {
 
-        var assetKey = (Iter.toArray(Text.split(path, #text("/"))))[Iter.toArray(Text.split(path, #text("/"))).size()-1];
+        var assetKey : Text = (Iter.toArray(Text.split(path, #text("/"))))[Iter.toArray(Text.split(path, #text("/"))).size()-1];
+        switch(Text.stripStart(assetKey, #text("/"))) {
+            case (null) {};
+            case (? s) {
+                assetKey := s;
+            };
+        };
 
         if (Text.contains(assetKey, #text("?"))) {
-            Debug.print(debug_show("Interrogacion"));
             assetKey := (Iter.toArray(Text.split(assetKey, #text("?"))))[0];
         };
 
@@ -331,14 +336,14 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
                 };
             };
             return {
-                body               = Blob.toArray(Text.encodeUtf8("asset not found: " # r.url));
+                body               = Blob.toArray(Text.encodeUtf8("asset not found: " # assetKey));
                 headers            = [];
                 streaming_strategy = null;
                 status_code        = 404;
             };
         } else {
             return {
-                body               = Blob.toArray(Text.encodeUtf8("asset not found: " # r.url));
+                body               = Blob.toArray(Text.encodeUtf8("asset not found: " # assetKey));
                 headers            = [];
                 streaming_strategy = null;
                 status_code        = 404;
