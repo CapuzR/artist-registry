@@ -80,8 +80,14 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
             return #err(#NotAuthorized);
         };
 
+        var assetName = "http://localhost:8000/";
+        let avatarKey = Text.concat("A", Principal.toText(caller));
+        assetName := Text.concat(assetName,  avatarKey);
+        assetName := Text.concat(assetName, "?canisterId=");
+        assetName := Text.concat(assetName, Principal.toText(assetCanisterIds[0]));
+
         let artist : Metadata = {
-            thumbnail = Text.concat(Principal.toText(assetCanisterIds[0]), Text.concat(".raw.ic0.app/", Text.concat(Principal.toText(metadata.principal_id), ".jpeg")));
+            thumbnail = assetName;
             name = metadata.name;
             frontend = metadata.frontend;
             description = metadata.description;
@@ -105,30 +111,30 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
                         switch(d.1){
                             case(#Text(u)) {
                                 usernamePpalRels.put(u, caller);
-                                break l;
+                                continue l;
                             };
                             case (_) {
-                                break l;
+                                continue l;
                             };
                         };
                     } else if (d.0 == "avatarAsset") {
                         switch(d.1) {
                             case(#Slice(a)) {
-                                await _storeImage(Text.concat("A", Principal.toText(metadata.principal_id)), Blob.fromArray(a));
-                                break l;
+                                await _storeImage(Text.concat("A", Principal.toText(metadata.principal_id)), a);
+                                continue l;
                             };
                             case (_) {
-                                break l;
+                                continue l;
                             };
                         };
                     } else if (d.0 == "bannerAsset") {
                         switch(d.1) {
                             case(#Slice(a)) {
-                                await _storeImage(Text.concat("G", Principal.toText(metadata.principal_id)), Blob.fromArray(a));
-                                break l;
+                                await _storeImage(Text.concat("B", Principal.toText(metadata.principal_id)), a);
+                                continue l;
                             };
                             case (_) {
-                                break l;
+                                continue l;
                             };
                         };
                     };
@@ -222,7 +228,7 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
                                         switch (vB[0]) {
                                             case(#Slice(a)) {
                                                 await _deleteImage(Text.concat("A", Principal.toText(artist.principal_id)));
-                                                await _storeImage(Text.concat("A", Principal.toText(artist.principal_id)), Blob.fromArray(a));
+                                                await _storeImage(Text.concat("A", Principal.toText(artist.principal_id)), a);
                                                 break l;
                                             };
                                             case (_) {
@@ -247,7 +253,7 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
                                             switch (vB[0]) {
                                                 case (#Slice(a)) {
                                                     await _deleteImage(Text.concat("B", Principal.toText(artist.principal_id)));
-                                                    await _storeImage(Text.concat("B", Principal.toText(artist.principal_id)), Blob.fromArray(a));
+                                                    await _storeImage(Text.concat("B", Principal.toText(artist.principal_id)), a);
                                                     break l;
                                                 };
                                                 case (_) {
@@ -365,24 +371,23 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
     };
 
 //-------------------Assets
-    private func _storeImage(name : Text, postAsset : Blob) : async () {
-
-        let key = Text.concat(name, ".jpeg");
+    
+    private func _storeImage(key : Text, asset : [Nat8]) : async () {
         
         let aCActor = actor(Principal.toText(assetCanisterIds[0])): actor { 
             store : shared ({
                 key : Text;
                 content_type : Text;
                 content_encoding : Text;
-                content : Blob;
-                sha256 : ?Blob;
+                content : [Nat8];
+                sha256 : ?[Nat8];
             }) -> async ()
         };
-        await aCActor.store({
+        let result = await aCActor.store({
                 key = key;
                 content_type = "image/jpeg";
                 content_encoding = "identity";
-                content = postAsset;
+                content = asset;
                 sha256 = null;
         });
 
