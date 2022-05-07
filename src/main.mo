@@ -393,9 +393,7 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
 
     };
 
-    private func _deleteImage(name : Text) : async () {
-
-        let key = Text.concat(name, ".jpeg");
+    private func _deleteImage(key : Text) : async () {
         
         let aCActor = actor(Principal.toText(assetCanisterIds[0])): actor { 
             delete_asset : shared ({
