@@ -171,7 +171,7 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
                     null
                 ).0;
                 await _deleteImage(Text.concat("A", Principal.toText(principal)));
-                await _deleteImage(Text.concat("A", Principal.toText(principal)));
+                await _deleteImage(Text.concat("B", Principal.toText(principal)));
                 let username = usernamePpalRels.get1(caller);
                 if(username.size() != 0) {
                     usernamePpalRels.delete(username[0], caller);
