@@ -73,9 +73,7 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
         let assetCan = await assetC.Assets(canisterMeta.principal_id);
         let assetCanisterId = await assetCan.getCanisterId();
 
-        for (acId in assetCanisterIds.vals()) {
-            tb.add(acId);
-        };
+        tb.add(assetCanisterId);
 
         assetCanisterIds := tb.toArray();
 
