@@ -3,6 +3,7 @@ import Hash "mo:base/Hash";
 import HashMap "mo:base/HashMap";
 import Nat "mo:base/Nat";
 import Result "mo:base/Result";
+import Principal "mo:base/Principal";
 import Text "mo:base/Text";
 
 module {
@@ -81,7 +82,7 @@ module {
 
         public func isAuthorized(p : Principal) : Result.Result<(), Text> {
             for (a in authorized.vals()) {
-                if (a == p) return #ok();
+                if (Principal.equal(a, p)) return #ok();
             };
             #err("caller is not authorized");
         };
