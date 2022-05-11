@@ -5,6 +5,7 @@ import Nat "mo:base/Nat";
 import Result "mo:base/Result";
 import Principal "mo:base/Principal";
 import Text "mo:base/Text";
+import Debug "mo:base/Debug";
 
 module {
     public type Asset = {

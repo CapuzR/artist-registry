@@ -27,3 +27,10 @@ dfx canister call artistRegistry name
 ```bash
 dfx canister call artistRegistry whitelistArtists '(vec { principal "bum4c-sxl2u-t64yr-crqjb-q5ovk-fwu7b-m6fnw-7z2vy-mh3f3-delh5-wae" })'
 ```
+
+dfx deploy socials --argument '(record { authorized = vec { principal "'$(dfx identity get-principal)'" }})'
+dfx canister call socials createAssetCan
+dfx deploy artistRegistry --argument '(record { admins = vec { principal "'$(dfx identity get-principal)'" }; artistWhitelist = vec { principal "'$(dfx identity get-principal)'" }})'
+dfx canister call artistRegistry createAssetCan
+dfx canister call artistRegistry whitelistArtists '(vec { principal "bum4c-sxl2u-t64yr-crqjb-q5ovk-fwu7b-m6fnw-7z2vy-mh3f3-delh5-wae" })'
+dfx deploy prixelart_assets

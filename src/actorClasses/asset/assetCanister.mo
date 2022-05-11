@@ -22,7 +22,6 @@ import State "./state";
 shared({caller = owner}) actor class Assets(artistPpal : Principal) : async AssetStorage.Self = this {
 
     private let BATCH_EXPIRY_NANOS = 300_000_000_000;
-
     stable var stableAuthorized : [Principal]                             = [owner, artistPpal];
     stable var stableAssets     : [(AssetStorage.Key, State.StableAsset)] = [];
 
@@ -55,7 +54,7 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
     };
 
     var state = State.State(stableAuthorized, stableAssets);
-    state.authorized := [owner];
+    state.authorized := [owner, artistPpal];
 
     public shared({caller}) func authorize(p : Principal) : async () {
         switch (state.isAuthorized(caller)) {
