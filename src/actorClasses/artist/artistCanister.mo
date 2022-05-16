@@ -90,11 +90,14 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
         if(not Utils.isAuthorized(caller, authorized)) {
             return #err(#NotAuthorized);
         };
+
+        let artThumb = "http://" # Principal.toText(assetCanisterIds[0]) # ".raw.ic0.app/A" # artId;
+        // let artThumb = Text.concat("http://localhost:8000/", Text.concat(artId, Text.concat(".jpeg?canisterId=", Principal.toText(assetCanisterIds[0]))))
         
         let newArt : Art = {
             artBasics = art.artBasics;
             createdAt = Time.now();
-            thumbnail = Text.concat("http://localhost:8000/", Text.concat(artId, Text.concat(".jpeg?canisterId=", Principal.toText(assetCanisterIds[0]))));
+            thumbnail = artThumb;
         };
 
         let (newArts, existing) = Trie.put(

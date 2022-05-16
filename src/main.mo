@@ -80,11 +80,13 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
             return #err(#NotAuthorized);
         };
 
-        var assetName = "http://localhost:8000/";
-        let avatarKey = Text.concat("A", Principal.toText(caller));
-        assetName := Text.concat(assetName,  avatarKey);
-        assetName := Text.concat(assetName, "?canisterId=");
-        assetName := Text.concat(assetName, Principal.toText(assetCanisterIds[0]));
+        // var assetName = "http://localhost:8000/";
+        // let avatarKey = Text.concat("A", Principal.toText(caller));
+        // assetName := Text.concat(assetName,  avatarKey);
+        // assetName := Text.concat(assetName, "?canisterId=");
+        // assetName := Text.concat(assetName, Principal.toText(assetCanisterIds[0]));
+        
+        let assetName = "http://" # Principal.toText(assetCanisterIds[0]) # ".raw.ic0.app/A" # avatarKey;
 
         let artist : Metadata = {
             thumbnail = assetName;
@@ -220,6 +222,7 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
                                 break l;
                             };
                         };
+                        // #Vec { #True/#False, #Slice { Asset } }
                     } else if (d.0 == "avatarAsset") {
                         switch(d.1){
                             case (#Vec(vB)){
@@ -246,30 +249,30 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
                             };
                         };
                     } else if (d.0 == "bannerAsset") {
-                            switch(d.1){
-                                case (#Vec(vB)){
-                                    switch(vB[1]) {
-                                        case(#True) {
-                                            switch (vB[0]) {
-                                                case (#Slice(a)) {
-                                                    await _deleteImage(Text.concat("B", Principal.toText(artist.principal_id)));
-                                                    await _storeImage(Text.concat("B", Principal.toText(artist.principal_id)), a);
-                                                    break l;
-                                                };
-                                                case (_) {
-                                                    break l;
-                                                };
+                        switch(d.1){
+                            case (#Vec(vB)){
+                                switch(vB[1]) {
+                                    case(#True) {
+                                        switch (vB[0]) {
+                                            case (#Slice(a)) {
+                                                await _deleteImage(Text.concat("B", Principal.toText(artist.principal_id)));
+                                                await _storeImage(Text.concat("B", Principal.toText(artist.principal_id)), a);
+                                                break l;
+                                            };
+                                            case (_) {
+                                                break l;
                                             };
                                         };
-                                        case (_) {
-                                            break l;
-                                        };
+                                    };
+                                    case (_) {
+                                        break l;
                                     };
                                 };
-                                case (_) {
-                                    break l;
-                                };
                             };
+                            case (_) {
+                                break l;
+                            };
+                        };
                     };
                 };
                 #ok(());

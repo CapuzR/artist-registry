@@ -86,6 +86,7 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
     public shared({caller}) func commit_batch(
         a : AssetStorage.CommitBatchArguments,
     ) : async () {
+        Debug.print(debug_show("Ok"));
         switch (state.isAuthorized(caller)) {
             case (#err(e)) throw Error.reject(e);
             case (#ok()) {
