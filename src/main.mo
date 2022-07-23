@@ -11,11 +11,13 @@ import Utils "./utils";
 import Prim "mo:prim";
 import Rels "./Rels/Rels";
 import Blob "mo:base/Blob";
+import Cycles "mo:base/ExperimentalCycles";
+import NFTTypes "./actorClasses/NFT/types";
 
 import aC "./actorClasses/artist/artistCanister";
 import assetC "./actorClasses/asset/assetCanister";
 
-shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
+shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = ArtistRegistry {
 
 //-------------------Types
 
@@ -29,14 +31,14 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
 
     stable var assetCanisterIds : [Principal] = [];
 
-    stable var usernamePpal : [(Text, Principal)] = [];//username,artistPrincipal
+    stable var usernamePpal : [(Text, Principal)] = []; //username,artistPrincipal
     let usernamePpalRels = Rels.Rels<Text, Principal>((Text.hash, Principal.hash), (Text.equal, Principal.equal), usernamePpal);
 
     stable var artists : Trie.Trie<Principal, Metadata> = Trie.empty();
     stable var registryName : Text = "Artists registry";
 
 //-------------------Registry
-    
+
     public query func name() : async Text {
         return registryName;
     };
@@ -86,7 +88,7 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
         // assetName := Text.concat(assetName, "?canisterId=");
         // assetName := Text.concat(assetName, Principal.toText(assetCanisterIds[0]));
         
-        let assetName = "http://" # Principal.toText(assetCanisterIds[0]) # ".raw.ic0.app/A" # avatarKey;
+        let assetName = "http://" # Principal.toText(assetCanisterIds[0]) # ".raw.ic0.app/A" # Principal.toText(caller);
 
         let artist : Metadata = {
             thumbnail = assetName;
@@ -222,7 +224,7 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
                                 break l;
                             };
                         };
-                        // #Vec { #True/#False, #Slice { Asset } }
+                        // #Vec { #Slice { Asset }, #True/#False }
                     } else if (d.0 == "avatarAsset") {
                         switch(d.1){
                             case (#Vec(vB)){
@@ -298,8 +300,11 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
                 if(v.principal_id != caller) { return #err(#NotAuthorized); };
                 if(Utils.isInDetails(v.details, "canisterId")) { return #err(#Unknown("Already exists")); };
 
-                let artistCan = await aC.ArtistCanister(v);
-                 
+                // let cycleShare = ;
+                let cycleShare = 4_000_000_000_000;
+                Cycles.add(cycleShare);
+                let artistCan = await aC.ArtistCanister(v, Principal.fromActor(ArtistRegistry));
+                // let amountAccepted = await artistCan.wallet_receive();
                 switch(await artistCan.createAssetCan()) {
                     case (#ok canPpals) {
                         let (canisterId, assetCanId)  : (Principal, Principal) = canPpals;
@@ -319,7 +324,7 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
                         #ok((canisterId, assetCanId));
 
                     };
-                    case (#err e) { return #err(e)};
+                    case (#err e) { return #err(e) };
                 };
             };
             case null {
@@ -411,6 +416,10 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
 
 //-------------------Admins
 
+    public query func balance() : async Nat {
+        Cycles.balance();
+    };
+    
     public shared({caller}) func createAssetCan () : async Result.Result<(Principal, Principal), Error> {
 
         if(not Utils.isAuthorized(caller, admins)) {
@@ -420,6 +429,8 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
         if(assetCanisterIds.size() != 0) { return #err(#Unknown("Already exists")); };
 
         let tb : Buffer.Buffer<Principal> = Buffer.Buffer(1);
+        let cycleShare = 2_000_000_000_000;
+        Cycles.add(cycleShare);
         let assetCan = await assetC.Assets(caller);
         let assetCanisterId = await assetCan.getCanisterId();
 
@@ -427,7 +438,7 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
 
         assetCanisterIds := tb.toArray();
 
-        return #ok((Principal.fromActor(this), assetCanisterId));
+        return #ok((Principal.fromActor(ArtistRegistry), assetCanisterId));
 
     };
 
@@ -462,7 +473,7 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
 
     };
 
-    public query func getCanMemInfo() : async () {
+    public query func getCanMemInfo () : async () {
 
         return ();
 
@@ -476,6 +487,10 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = this {
         //   Debug.print(debug_show(Prim.rts_max_live_size()));
         //   Debug.print(debug_show("heap"));
         //   Debug.print(debug_show(Prim.rts_heap_size()));
+    };
+    
+    public shared({caller}) func wallet_receive() : async () {
+        ignore Cycles.accept(Cycles.available());
     };
     
 //---------------Upgrades

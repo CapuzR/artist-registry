@@ -31,6 +31,25 @@ module {
         updateThumbnail : Bool;
     };
 
+    public type NFTMetadata = {
+        name : Text;
+        symbol : Text;
+        supply : ?Nat;
+        website : ?Text;
+        socials : [?(Text, Text)];
+        prixelart : ?Text;
+    };
+
+    public type NFTMetadataExt = {
+        name : Text;
+        symbol : Text;
+        supply : ?Nat;
+        website : ?Text;
+        socials : [?(Text, Text)];
+        prixelart : ?Text;
+        principal : Principal;
+    };
+
 
 //General Types
 

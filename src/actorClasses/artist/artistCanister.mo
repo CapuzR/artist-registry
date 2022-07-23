@@ -6,15 +6,20 @@ import Time "mo:base/Time";
 import Buffer "mo:base/Buffer";
 import Array "mo:base/Array";
 import Debug "mo:base/Debug";
+import Nat "mo:base/Nat";
+import Nat64 "mo:base/Nat64";
 import Types "./types";
 import Utils "../../utils";
 import Source "mo:uuid/async/SourceV4";
 import UUID "mo:uuid/UUID";
+import Cycles "mo:base/ExperimentalCycles";
 
 import assetC "../asset/assetCanister";
+import nFTC "../NFT/main";
 
-shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata) = this {
+shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Types.Metadata, artistRegistryId : Principal) = this {
 
+    let limit = 10_000_000_000;
     type Metadata = Types.Metadata;
     type Error = Types.Error;
     type Art = Types.Art;
@@ -23,8 +28,11 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
     stable var arts : Trie.Trie<Text, Art> = Trie.empty();
     stable var registryName : Text = Text.concat(artistMeta.name, "Artist Canister");
     stable var canisterMeta : Metadata = artistMeta;
+    stable var artistRegistry : Principal = artistRegistryId;
     stable var assetCanisterIds : [Principal] = [];
-    stable var authorized : [Principal] = [owner, artistMeta.principal_id];
+    stable var nftCanisters : [Types.NFTMetadataExt] = [];
+    stable var authorized : [Principal] = [artistRegistry, artistMeta.principal_id];
+    stable var owners : [Principal] = [artistRegistry, artistMeta.principal_id];
 
     public query({caller}) func authorizedArr () : async Result.Result<[Principal], Error> {
 
@@ -70,6 +78,9 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
         if(assetCanisterIds.size() != 0) { return #err(#Unknown("Already exists")); };
 
         let tb : Buffer.Buffer<Principal> = Buffer.Buffer(1);
+        
+        let cycleShare = 2_000_000_000_000;
+        Cycles.add(cycleShare);
         let assetCan = await assetC.Assets(canisterMeta.principal_id);
         let assetCanisterId = await assetCan.getCanisterId();
 
@@ -80,6 +91,124 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
         return #ok((Principal.fromActor(this), assetCanisterId));
 
     };
+
+    public shared({caller}) func initNFTCan (nftCanId : Principal, creator : Principal) : async Result.Result<(), Error> {
+        
+                Debug.print(debug_show("aqui0"));
+        if(not Utils.isAuthorized(creator, owners) and not Utils.isAuthorized(caller, owners)) {
+            return #err(#NotAuthorized);
+        };
+                Debug.print(debug_show("aqui1"));
+        if(Utils.isAuthorized(creator, owners) and (Principal.equal(caller, artistRegistry) or Principal.notEqual(caller, creator))) {
+            return #err(#NotAuthorized);
+        };
+                Debug.print(debug_show("aqui2"));
+        
+        let service = actor(Principal.toText(nftCanId)): actor {
+            init: () -> async ()
+        };
+
+                Debug.print(debug_show("aqui3"));
+        #ok(await service.init());
+
+    };
+
+    type UpdatableCanisterSettings = {
+        controllers : ?[Principal];
+    };
+    
+    let IC =
+    actor "aaaaa-aa" : actor {
+      update_settings : { 
+          canister_id : Principal;
+          settings : UpdatableCanisterSettings;
+        } ->
+        async ();
+    };
+    
+    public shared({caller}) func createNFTCan(nFTMetadata : Types.NFTMetadata, creator : Principal) : async Result.Result<Types.NFTMetadataExt, Error> {
+        
+                Debug.print(debug_show("aqui0"));
+        if(not Utils.isAuthorized(creator, owners) and not Utils.isAuthorized(caller, owners)) {
+            return #err(#NotAuthorized);
+        };
+                Debug.print(debug_show("creator"));
+                Debug.print(debug_show(creator));
+                Debug.print(debug_show("owners"));
+                Debug.print(debug_show(owners));
+                Debug.print(debug_show("caller"));
+                Debug.print(debug_show(caller));
+                Debug.print(debug_show("isAuthorized"));
+                Debug.print(debug_show(Utils.isAuthorized(creator, owners)));
+                Debug.print(debug_show("caller artistRegistry"));
+                Debug.print(debug_show(Principal.equal(caller, artistRegistry)));
+                Debug.print(debug_show("caller creator"));
+                Debug.print(debug_show(Principal.notEqual(caller, creator)));
+                Debug.print(debug_show("both"));
+                Debug.print(debug_show((Principal.equal(caller, artistRegistry) or Principal.notEqual(caller, creator))));
+                Debug.print(debug_show("all"));
+                Debug.print(debug_show(Utils.isAuthorized(creator, owners) and (Principal.equal(caller, artistRegistry) or Principal.notEqual(caller, creator))));
+        if(Utils.isAuthorized(creator, owners) and (Principal.equal(caller, artistRegistry) or Principal.notEqual(caller, creator))) {
+            return #err(#NotAuthorized);
+        };
+
+                Debug.print(debug_show("aqui2"));
+        let cycleShare = 400_000_000_000;
+        Cycles.add(cycleShare);
+                Debug.print(debug_show("aqui3"));
+        let newNFTCan = await nFTC.NFT(
+            {
+                name = nFTMetadata.name;
+                symbol = nFTMetadata.symbol;
+                supply = nFTMetadata.supply;
+                website = nFTMetadata.website;
+                socials = nFTMetadata.socials;
+                prixelart = nFTMetadata.prixelart;
+            }, 
+            creator
+        );
+                Debug.print(debug_show("aqui4"));
+        let tb : Buffer.Buffer<Types.NFTMetadataExt> = Utils.arrayToBuffer(nftCanisters);   
+                Debug.print(debug_show("aqui5"));
+        //Is necessary to add canisterInfo here?
+        let newNFTCanMeta : Types.NFTMetadataExt =  {
+            name = nFTMetadata.name;
+            symbol = nFTMetadata.symbol;
+            supply = nFTMetadata.supply;
+            website = nFTMetadata.website;
+            socials = nFTMetadata.socials;
+            prixelart = nFTMetadata.prixelart;
+            principal = Principal.fromActor(newNFTCan);
+        };
+
+                Debug.print(debug_show("aqui6"));
+        tb.add(newNFTCanMeta);
+
+                Debug.print(debug_show("aqui7"));
+        nftCanisters := tb.toArray();
+        
+                Debug.print(debug_show("aqui8"));
+        await IC.update_settings({
+            canister_id = Principal.fromActor(newNFTCan);
+            settings = {
+                controllers = ?[Principal.fromActor(newNFTCan)];
+            };
+        });
+                Debug.print(debug_show("aqui9"));
+
+        #ok(newNFTCanMeta);
+    };
+
+    public query func getNFTCan () : async [Types.NFTMetadataExt] {
+        return nftCanisters;
+    };
+    
+    public func wallet_receive() : async { accepted: Nat64 } {
+        let available = Cycles.available();
+        let accepted = Cycles.accept(Nat.min(available, limit));
+        { accepted = Nat64.fromNat(accepted) };
+    };
+
 
 //Art...............................................................................
     public shared({caller}) func createArt (art : ArtUpdate) : async Result.Result<Text, Error> {
@@ -109,8 +238,8 @@ shared({ caller = owner }) actor class ArtistCanister(artistMeta: Types.Metadata
 
         switch(existing) {
             case null {
-                arts := newArts;
                 await _storeImage(Text.concat("T", artId), art.thumbAsset);
+                arts := newArts;
                 #ok(artId);
             };
             case (? v) {

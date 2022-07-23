@@ -9,7 +9,7 @@ import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Order "mo:base/Order";
 import Result "mo:base/Result";
-import SHA256 "mo:sha/SHA256";
+import SHA256 "mo:crypto/SHA/SHA256";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Debug "mo:base/Debug";
@@ -506,7 +506,7 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
                 };
                 let sha256 = switch (a.sha256) {
                     case (null) {
-                        let h = SHA256.Hash(false);
+                        let h = SHA256.New();
                         for (chunk in content_chunks.vals()) h.write(chunk);
                         h.sum([]);
                     };
@@ -548,7 +548,7 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
                 let encodings = HashMap.HashMap<Text, State.AssetEncoding>(
                     0, Text.equal, Text.hash,
                 );
-                let hash = SHA256.sum256(a.content);
+                let hash = SHA256.sum(a.content);
                 switch (a.sha256) {
                     case (null) {};
                     case (? sha256) {
