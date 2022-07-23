@@ -59,6 +59,39 @@ dfx --identity=player5 canister call qjdve-lqaaa-aaaaa-aaaeq-cai createNFTCan '(
 dfx --identity=player5 canister call renrk-eyaaa-aaaaa-aaada-cai initNFTCan '(principal "qoctq-giaaa-aaaaa-aaaea-cai", principal "'$(dfx --identity=player5 identity get-principal)'")' 
 ```
 
+## Mint 1 NFT
+
+```bash
+dfx --identity=player6 canister call q4eej-kyaaa-aaaaa-aaaha-cai mint '( record { payload = variant { Payload = blob "/0x49" }; contentType = "image/jpeg"; owner = principal "'$(dfx --identity=player6 identity get-principal)'"; properties = vec { record { name = "Test1"; value =  variant { Text = "Lol" }; immutable = true } }; isPrivate = false; } )'
+```
+
+## Transfer NFT
+
+```bash
+dfx --identity=default canister call q4eej-kyaaa-aaaaa-aaaha-cai transfer '( principal "'$(dfx --identity=player1 identity get-principal)'", "0" )'
+```
+
+## Check balance of NFT
+
+```bash
+dfx --identity=player5 canister call q4eej-kyaaa-aaaaa-aaaha-cai balanceOf '( principal "'$(dfx --identity=player5 identity get-principal)'" )'
+```
+
+## Authorize third-party to manage NFT
+
+```bash
+dfx --identity=player6 canister call q4eej-kyaaa-aaaaa-aaaha-cai authorize '( record { id="2"; p = principal "'$(dfx --identity=default identity get-principal)'"; isAuthorized = true; } )'
+```
+
+## Artist Registry transfer being authorized.
+
+```bash
+dfx canister call artistRegistry transferAuthNFT '( principal "q4eej-kyaaa-aaaaa-aaaha-cai", principal "'$(dfx --identity=player3 identity get-principal)'", "0" )'
+```
+
+
+dfx canister call renrk-eyaaa-aaaaa-aaada-cai mint '( record { payload = variant { Payload = "/0x49" }; contentType = "image/jpeg"; owner = "'$(dfx --identity=User0 identity get-principal)'"; properties= vec { record { name="1"; value = variant { Text = "val1" }; immutable = true; } }; isPrivate=false; } )'
+
 //Local
 dfx deploy socials --argument '(record { authorized = vec { principal "'$(dfx identity get-principal)'" }})'
 dfx canister call socials createAssetCan
