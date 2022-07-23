@@ -94,21 +94,17 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
 
     public shared({caller}) func initNFTCan (nftCanId : Principal, creator : Principal) : async Result.Result<(), Error> {
         
-                Debug.print(debug_show("aqui0"));
         if(not Utils.isAuthorized(creator, owners) and not Utils.isAuthorized(caller, owners)) {
             return #err(#NotAuthorized);
         };
-                Debug.print(debug_show("aqui1"));
         if(Utils.isAuthorized(creator, owners) and (Principal.equal(caller, artistRegistry) or Principal.notEqual(caller, creator))) {
             return #err(#NotAuthorized);
         };
-                Debug.print(debug_show("aqui2"));
         
         let service = actor(Principal.toText(nftCanId)): actor {
             init: () -> async ()
         };
 
-                Debug.print(debug_show("aqui3"));
         #ok(await service.init());
 
     };

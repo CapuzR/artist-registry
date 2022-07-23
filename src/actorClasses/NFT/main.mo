@@ -287,7 +287,7 @@ shared({ caller = artistCanister }) actor class NFT(contractMetadata : Types.Con
         });
         res;
     };
-
+    //TODO
     // Allows the caller to authorize another principal to act on its behalf.
     public shared ({caller}) func authorize(req : Token.AuthorizeRequest) : async Result.Result<(), Types.Error> {
         switch (_canChange(caller, req.id)) {

@@ -13,6 +13,7 @@ import Rels "./Rels/Rels";
 import Blob "mo:base/Blob";
 import Cycles "mo:base/ExperimentalCycles";
 import NFTTypes "./actorClasses/NFT/types";
+import TokenTypes "./actorClasses/NFT/token";
 
 import aC "./actorClasses/artist/artistCanister";
 import assetC "./actorClasses/asset/assetCanister";
@@ -330,6 +331,34 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = ArtistR
             case null {
                 return #err(#NonExistentItem);
             };
+        };
+    };
+
+    public shared({caller}) func transferAuthNFT (nftCanId : Principal, to : Principal, id : Text) : async Result.Result<(), NFTTypes.Error> {
+
+        let service = actor(Principal.toText(nftCanId)): actor {
+            transfer : (Principal, Text) -> async ({ 
+                #err : NFTTypes.Error;
+                #ok;
+             });
+             authorize : (TokenTypes.AuthorizeRequest) -> async ({
+                #err : NFTTypes.Error;
+                #ok;
+             });
+        };
+
+        switch(await service.transfer(to, id)) {
+            case (#ok) {
+                switch(await service.authorize({
+                    id = id;
+                    p = Principal.fromActor(ArtistRegistry);
+                    isAuthorized = false;
+                })) {
+                    case (#ok) { #ok(());  };
+                    case (#err(e)) { return #err(e) };
+                };
+            };
+            case (#err(e)) { return #err(e) };
         };
     };
 
