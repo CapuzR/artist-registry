@@ -14,6 +14,7 @@ import Text "mo:base/Text";
 import Trie "mo:base/Trie";
 
 import Hex "./Hex";
+import ICP "./ICPledger";
 import NFTTypes "./actorClasses/NFT/types";
 import Rels "./Rels/Rels";
 import TokenTypes "./actorClasses/NFT/token";
@@ -79,9 +80,8 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
             kind = #NotAuthorized ;
             });
         };
-
         let invoiceId : Nat = counter + 1;
-
+        counter+=1;
         let account = await getAccount( 
         token,
         caller,
@@ -96,7 +96,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
             
             switch(result){
             case (#text (textAccount)){
-                invoices.put(invoiceId, { id = invoiceId; creator = owner; amount = 10; token = "ICP"; destination=textAccount });
+                invoices.put(invoiceId, { id = invoiceId; creator = owner; amount = amount; token = "ICP"; destination=textAccount });
     
                 #ok({
                     invoice = {
@@ -143,32 +143,61 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
       };
     };
 
-    // public shared ({caller}) func isVerifyPayment (invoiceId : Nat, amount : Nat) : async Result.Result<(), Error> {
+    public shared ({caller}) func isVerifyPayment (invoiceId : Nat) : async Result.Result<(Principal, Principal), Types.InvoiceError> {
 
-    //     let canisterId = Principal.fromActor(InvoiceTest);
-    //     let currentInvoice = await getInvoice(invoiceId);
-        
-    //     switch (currentInvoice) {
-    //       case (#err(e)) {
-    //         return #err(e);
-    //       };
-    //       case (#ok(invoice)) {
-    //         switch (invoice.token){
-    //           case("ICP"){
-    //             let balanceResult = await ICP.balance(invoice.destination);
-    //             Debug.print(debug_show(balanceResult));
-    //             #ok(());
-    //           };
-    //           case(_){
-    //             return #err({
-    //               message = ?"This token is not yet supported. Currently, this canister supports ICP.";
-    //               kind = #NotFound;
-    //             });
-    //           };
-    //         };
-    //       };
-    //     };
-    // };
+        let canisterId = Principal.fromActor(ArtistRegistry);
+        let currentInvoice = await getInvoice(invoiceId);
+         
+        switch (currentInvoice) {
+          case (#err(e)) {
+            return #err(e);
+          };
+          case (#ok(invoice)) {
+             
+            switch (invoice.token){
+              case("ICP"){
+                let balanceResult = await ICP.balance(invoice.destination);
+                switch(balanceResult){
+                    case(#err err) {
+                        return #err({
+                            message = ?"Error in get balance";
+                            kind = #Other;
+                        });
+                    };
+                    case(#ok balance){
+                        if(balance < invoice.amount){
+                            return #err({
+                                message = ?"Insuficient balance for validate invoice";
+                                kind = #Other;
+                            });
+                        }else{
+                            let artistCan = await createArtistCan(caller);
+                            switch(artistCan){
+                                case(#err err){
+                                    return #err({
+                                        message = ?"Error un create canisters privates";
+                                        kind = #Other;
+                                    });
+                                };
+                                case (#ok canisters){
+                                    #ok(canisters)
+                                }
+                            }
+                            
+                        }
+                    };
+                };
+            };
+              case(_){
+                return #err({
+                  message = ?"This token is not yet supported. Currently, this canister supports ICP.";
+                  kind = #NotFound;
+                });
+              };
+            };
+          };
+        };
+    };
 
     
 
@@ -418,7 +447,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
         };
     };
 
-    public shared({caller}) func createArtistCan() : async Result.Result<(Principal, Principal), Error> {
+    private func createArtistCan(caller:Principal) : async Result.Result<(Principal, Principal), Error> {
 
         if(not Utils.isAuthorized(caller, artistWhitelist)) {
             return #err(#NotAuthorized);
@@ -429,10 +458,9 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
             Utils.key(caller),
             Principal.equal,
         );
-
+        
         switch(result) {
             case (? v) {
-
                 if(v.principal_id != caller) { return #err(#NotAuthorized); };
                 if(Utils.isInDetails(v.details, "canisterId")) { return #err(#Unknown("Already exists")); };
 
@@ -440,6 +468,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                 let cycleShare = 4_000_000_000_000;
                 Cycles.add(cycleShare);
                 let artistCan = await aC.ArtistCanister(v, Principal.fromActor(ArtistRegistry));
+               
                 // let amountAccepted = await artistCan.wallet_receive();
                 switch(await artistCan.createAssetCan()) {
                     case (#ok canPpals) {
