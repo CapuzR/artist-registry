@@ -109,8 +109,8 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                 };
                 subAccount=textAccount;
                 });
-            }
-            }
+            };
+            };
         };
         case (_){
             #err({
@@ -181,7 +181,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                                     });
                                 };
                                 case (#ok canisters){
-                                    #ok(canisters)
+                                    #ok(canisters);
                                 }
                             }
                             
@@ -465,16 +465,15 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                 if(v.principal_id != caller) { return #err(#NotAuthorized); };
                 if(Utils.isInDetails(v.details, "canister   Id")) { return #err(#Unknown("Already exists")); };
 
-                // let cycleShare = ;
                 let cycleShare = 10_000_000_000_000;
                 Cycles.add(cycleShare);
                 let artistCan = await aC.ArtistCanister(v, Principal.fromActor(ArtistRegistry));
                 var count : Nat = 0;
-                var buff : Buffer.Buffer<Text> = Buffer.Buffer(1);
-                
+                var assetCanistersBuffer : Buffer.Buffer<Text> = Buffer.Buffer(1);
+                var artistCanisterId : Text = "";
                 // buff.add(("canisterId", #Principal(canisterId)));
                 // buff.add(("assetCanId", #Principal(assetCanId)));
-
+              
                 // let amountAccepted = await artistCan.wallet_receive();
                 while (count < quantity) {
                     count += 1;
@@ -485,16 +484,20 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                             return #err(#NonExistentItem);
                        };
                        case (#ok canisterIds){
-                            Debug.print(debug_show(canisterIds));
-                       }
-                   }
+                            let (canisterId, assetCanId)  : (Principal, Principal) = canisterIds;
+                            if(artistCanisterId == ""){
+                                artistCanisterId:= Principal.toText(canisterId);
+                            };
+                            assetCanistersBuffer.add(Principal.toText(assetCanId));
+                       };
+                   };
                 };
-
                 #ok({
-                        canisterId = "CanisterID";
-                        assetCanisters = ["Canister 1", "Canister 2"];
+                        canisterId = artistCanisterId;
+                        assetCanisters = assetCanistersBuffer.toArray();
                     });
             };
+            
             case null {
                 return #err(#NonExistentItem);
             };
