@@ -471,8 +471,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                 var count : Nat = 0;
                 var assetCanistersBuffer : Buffer.Buffer<Text> = Buffer.Buffer(1);
                 var artistCanisterId : Text = "";
-                // buff.add(("canisterId", #Principal(canisterId)));
-                // buff.add(("assetCanId", #Principal(assetCanId)));
+                let buff : Buffer.Buffer<(Text, DetailValue)> = Utils.arrayToBuffer(v.details);
               
                 // let amountAccepted = await artistCan.wallet_receive();
                 while (count < quantity) {
@@ -492,6 +491,8 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                        };
                    };
                 };
+                buff.add(("canisterId", #Text(artistCanisterId)));
+                buff.add(("assetCanisters", #VecText(assetCanistersBuffer.toArray())));
                 #ok({
                         canisterId = artistCanisterId;
                         assetCanisters = assetCanistersBuffer.toArray();

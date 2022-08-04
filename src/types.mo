@@ -78,6 +78,7 @@ module {
         #False;
         #Float : Float;
         #Principal : Principal;
+        #VecText : [Text];
     };
 
     
