@@ -466,10 +466,15 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                 if(Utils.isInDetails(v.details, "canister   Id")) { return #err(#Unknown("Already exists")); };
 
                 // let cycleShare = ;
-                let cycleShare = 20_000_000_000_000;
+                let cycleShare = 10_000_000_000_000;
                 Cycles.add(cycleShare);
                 let artistCan = await aC.ArtistCanister(v, Principal.fromActor(ArtistRegistry));
                 var count : Nat = 0;
+                var buff : Buffer.Buffer<Text> = Buffer.Buffer(1);
+                
+                // buff.add(("canisterId", #Principal(canisterId)));
+                // buff.add(("assetCanId", #Principal(assetCanId)));
+
                 // let amountAccepted = await artistCan.wallet_receive();
                 while (count < quantity) {
                     count += 1;
