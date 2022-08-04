@@ -7,6 +7,7 @@ module {
         amount : Nat;
         token : Text;
         destination : Text;
+        quantity : Nat;
     };
 
      public type InvoiceError = {
@@ -46,6 +47,11 @@ module {
     };
 
     public type SubAccount = Blob;
+
+    public type CreateCanistersResult = {
+        canisterId:Text;
+        assetCanisters:[Text];
+    };
 
 
     public type InitOptions = {

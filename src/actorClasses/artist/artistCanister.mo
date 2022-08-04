@@ -1,19 +1,20 @@
-import Principal "mo:base/Principal";
-import Result "mo:base/Result";
-import Trie "mo:base/Trie";
-import Text "mo:base/Text";
-import Time "mo:base/Time";
-import Buffer "mo:base/Buffer";
 import Array "mo:base/Array";
+import Buffer "mo:base/Buffer";
+import Cycles "mo:base/ExperimentalCycles";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Nat64 "mo:base/Nat64";
-import Types "./types";
-import Utils "../../utils";
+import Principal "mo:base/Principal";
+import Result "mo:base/Result";
+import Text "mo:base/Text";
+import Time "mo:base/Time";
+import Trie "mo:base/Trie";
+
 import Source "mo:uuid/async/SourceV4";
 import UUID "mo:uuid/UUID";
-import Cycles "mo:base/ExperimentalCycles";
 
+import Types "./types";
+import Utils "../../utils";
 import assetC "../asset/assetCanister";
 import nFTC "../NFT/main";
 
@@ -75,7 +76,7 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
             return #err(#NotAuthorized);
         };
 
-        if(assetCanisterIds.size() != 0) { return #err(#Unknown("Already exists")); };
+        // if(assetCanisterIds.size() != 0) { return #err(#Unknown("Already exists")); };
 
         let tb : Buffer.Buffer<Principal> = Buffer.Buffer(1);
         

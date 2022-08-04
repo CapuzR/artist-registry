@@ -72,7 +72,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
         };
     };
 
-    public shared ({caller}) func createInvoice ( token: Text, amount: Nat ) : async Result.Result<Types.CreateInvoiceResult, Types.InvoiceError> {
+    public shared ({caller}) func createInvoice ( token : Text, amount : Nat, quantity : Nat ) : async Result.Result<Types.CreateInvoiceResult, Types.InvoiceError> {
     
         if(Principal.isAnonymous(caller)) {
         return #err({
@@ -96,7 +96,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
             
             switch(result){
             case (#text (textAccount)){
-                invoices.put(invoiceId, { id = invoiceId; creator = owner; amount = amount; token = "ICP"; destination=textAccount });
+                invoices.put(invoiceId, { id = invoiceId; creator = owner; amount = amount; token = "ICP"; destination=textAccount; quantity = quantity });
     
                 #ok({
                     invoice = {
@@ -105,6 +105,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                     amount=amount;
                     token=token;
                     destination=textAccount;
+                    quantity=quantity;
                 };
                 subAccount=textAccount;
                 });
@@ -143,7 +144,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
       };
     };
 
-    public shared ({caller}) func isVerifyPayment (invoiceId : Nat) : async Result.Result<(Principal, Principal), Types.InvoiceError> {
+    public shared ({caller}) func isVerifyPayment (invoiceId : Nat) : async Result.Result<Types.CreateCanistersResult, Types.InvoiceError> {
 
         let canisterId = Principal.fromActor(ArtistRegistry);
         let currentInvoice = await getInvoice(invoiceId);
@@ -171,7 +172,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                                 kind = #Other;
                             });
                         }else{
-                            let artistCan = await createArtistCan(caller);
+                            let artistCan = await createArtistCan(caller, invoice.quantity);
                             switch(artistCan){
                                 case(#err err){
                                     return #err({
@@ -447,7 +448,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
         };
     };
 
-    private func createArtistCan(caller:Principal) : async Result.Result<(Principal, Principal), Error> {
+    private func createArtistCan(caller : Principal, quantity : Nat) : async Result.Result<Types.CreateCanistersResult, Error> {
 
         if(not Utils.isAuthorized(caller, artistWhitelist)) {
             return #err(#NotAuthorized);
@@ -462,35 +463,32 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
         switch(result) {
             case (? v) {
                 if(v.principal_id != caller) { return #err(#NotAuthorized); };
-                if(Utils.isInDetails(v.details, "canisterId")) { return #err(#Unknown("Already exists")); };
+                if(Utils.isInDetails(v.details, "canister   Id")) { return #err(#Unknown("Already exists")); };
 
                 // let cycleShare = ;
-                let cycleShare = 4_000_000_000_000;
+                let cycleShare = 20_000_000_000_000;
                 Cycles.add(cycleShare);
                 let artistCan = await aC.ArtistCanister(v, Principal.fromActor(ArtistRegistry));
-               
+                var count : Nat = 0;
                 // let amountAccepted = await artistCan.wallet_receive();
-                switch(await artistCan.createAssetCan()) {
-                    case (#ok canPpals) {
-                        let (canisterId, assetCanId)  : (Principal, Principal) = canPpals;
-                        let buff : Buffer.Buffer<(Text, DetailValue)> = Utils.arrayToBuffer(v.details);
-                        buff.add(("canisterId", #Principal(canisterId)));
-                        buff.add(("assetCanId", #Principal(assetCanId)));
-
-                        let artist: Metadata = {
-                            thumbnail = v.thumbnail;
-                            name = v.name;
-                            frontend = null;
-                            description = v.description;
-                            principal_id = v.principal_id;
-                            details = buff.toArray();
-                        };
-                        let dummy = await _update(caller, artist);
-                        #ok((canisterId, assetCanId));
-
-                    };
-                    case (#err e) { return #err(e) };
+                while (count < quantity) {
+                    count += 1;
+                    Debug.print(debug_show(count));
+                    let assetCanister = await artistCan.createAssetCan();
+                   switch(assetCanister){
+                       case (#err err){
+                            return #err(#NonExistentItem);
+                       };
+                       case (#ok canisterIds){
+                            Debug.print(debug_show(canisterIds));
+                       }
+                   }
                 };
+
+                #ok({
+                        canisterId = "CanisterID";
+                        assetCanisters = ["Canister 1", "Canister 2"];
+                    });
             };
             case null {
                 return #err(#NonExistentItem);
@@ -620,13 +618,14 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
         };
 
         if(assetCanisterIds.size() != 0) { return #err(#Unknown("Already exists")); };
-
         let tb : Buffer.Buffer<Principal> = Buffer.Buffer(1);
+        
         let cycleShare = 2_000_000_000_000;
         Cycles.add(cycleShare);
+        Debug.print(debug_show("LLEGUE HAST"));
         let assetCan = await assetC.Assets(caller);
         let assetCanisterId = await assetCan.getCanisterId();
-
+        
         tb.add(assetCanisterId);
 
         assetCanisterIds := tb.toArray();
