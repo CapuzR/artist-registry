@@ -144,7 +144,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
       };
     };
 
-    public shared ({caller}) func isVerifyPayment (invoiceId : Nat) : async Result.Result<Types.CreateCanistersResult, Types.InvoiceError> {
+    public shared ({caller}) func isVerifyPayment (invoiceId : Nat, invoiceType : Text) : async Result.Result<Types.CreateCanistersResult, Types.InvoiceError> {
 
         let canisterId = Principal.fromActor(ArtistRegistry);
         let currentInvoice = await getInvoice(invoiceId);
@@ -172,18 +172,28 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                                 kind = #Other;
                             });
                         }else{
-                            let artistCan = await createArtistCan(caller, invoice.quantity);
-                            switch(artistCan){
-                                case(#err err){
-                                    return #err({
-                                        message = ?"Error un create canisters privates";
-                                        kind = #Other;
-                                    });
-                                };
-                                case (#ok canisters){
-                                    #ok(canisters);
+                            if(invoiceType == "storage"){
+                                let artistCan = await createArtistCan(caller, invoice.quantity);
+                                switch(artistCan){
+                                    case(#err err){
+                                        return #err({
+                                            message = ?"Error un create canisters privates";
+                                            kind = #Other;
+                                        });
+                                    };
+                                    case (#ok canisters){
+                                        #ok(canisters);
+                                    }
                                 }
+                            } else {
+                                #ok({
+                                    canisterId = "N/A";
+                                    assetCanisters = [];
+                                    ok = true;
+                                })
                             }
+
+                            
                             
                         }
                     };
@@ -463,7 +473,7 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
         switch(result) {
             case (? v) {
                 if(v.principal_id != caller) { return #err(#NotAuthorized); };
-                if(Utils.isInDetails(v.details, "canister   Id")) { return #err(#Unknown("Already exists")); };
+                if(Utils.isInDetails(v.details, "canisterId")) { return #err(#Unknown("Already exists")); };
 
                 let cycleShare = 10_000_000_000_000;
                 Cycles.add(cycleShare);
@@ -493,9 +503,19 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
                 };
                 buff.add(("canisterId", #Text(artistCanisterId)));
                 buff.add(("assetCanisters", #VecText(assetCanistersBuffer.toArray())));
+                let artist: Metadata = {
+                            thumbnail = v.thumbnail;
+                            name = v.name;
+                            frontend = null;
+                            description = v.description;
+                            principal_id = v.principal_id;
+                            details = buff.toArray();
+                        };
+                        let dummy = await _update(caller, artist);
                 #ok({
                         canisterId = artistCanisterId;
                         assetCanisters = assetCanistersBuffer.toArray();
+                        ok = true;
                     });
             };
             

@@ -1,18 +1,19 @@
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
-import Event "event";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
-import Http "http";
 import Iter "mo:base/Iter";
-import MapHelper "mapHelper";
 import Prim "mo:⛔";
 import Principal "mo:base/Principal";
-import Property "property";
 import Result "mo:base/Result";
-import Staged "staged";
-import Static "static";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
+
+import Event "event";
+import Http "http";
+import MapHelper "mapHelper";
+import Property "property";
+import Staged "staged";
+import Static "static";
 import Token "token";
 import Types "types";
 
@@ -200,6 +201,11 @@ shared({ caller = artistCanister }) actor class NFT(contractMetadata : Types.Con
                     topupAmount   = TOPUP_AMOUNT;
                     topupCallback = wallet_receive;
                 });
+                ignore await authorize({
+                    id = id;
+                    p = Principal.fromActor(NFTService);
+                    isAuthorized = true;
+                });
                 #ok(id);
             };
         };
@@ -242,11 +248,10 @@ shared({ caller = artistCanister }) actor class NFT(contractMetadata : Types.Con
 
     // List all static assets.
     // @pre: isOwner
-    public query ({caller}) func listAssets() : async [(Text, Text, Nat)] {
-        assert(_isOwner(caller));
-        staticAssets.list();
+public query ({caller}) func listAssets() : async [(Text, (?Principal, [Principal]), Property.Properties)] {
+        let nftRes : Iter.Iter<(Text, (?Principal, [Principal]), Property.Properties)> = nfts.softEntries();
+        Iter.toArray(nftRes);
     };
-
     // Allows you to replace delete and stage NFTs.
     // Putting and initializing staged data will overwrite the present data.
     public shared ({caller}) func assetRequest(data : Static.AssetRequest) : async Result.Result<(), Types.Error> {

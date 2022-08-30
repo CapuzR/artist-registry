@@ -1,9 +1,13 @@
 import Array "mo:base/Array";
+import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
 import Cycles "mo:base/ExperimentalCycles";
 import Debug "mo:base/Debug";
+import Hash       "mo:base/Hash";
+import HashMap    "mo:base/HashMap";
 import Nat "mo:base/Nat";
 import Nat64 "mo:base/Nat64";
+import Prim "mo:⛔";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
@@ -13,7 +17,12 @@ import Trie "mo:base/Trie";
 import Source "mo:uuid/async/SourceV4";
 import UUID "mo:uuid/UUID";
 
+import Hex "../../Hex";
+import ICP "../../ICPledger";
+import NFTTypes "../NFT/types";
+import Token "../NFT/token";
 import Types "./types";
+import TypesInvoices "../../types";
 import Utils "../../utils";
 import assetC "../asset/assetCanister";
 import nFTC "../NFT/main";
@@ -34,6 +43,186 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
     stable var nftCanisters : [Types.NFTMetadataExt] = [];
     stable var authorized : [Principal] = [artistRegistry, artistMeta.principal_id];
     stable var owners : [Principal] = [artistRegistry, artistMeta.principal_id];
+
+     var invoices = HashMap.HashMap<Nat, TypesInvoices.Invoice>(1, Nat.equal, Hash.hash);
+     var counter : Nat = 0;
+
+     public shared query ({caller}) func getInvoice (id:Nat) : async Result.Result<TypesInvoices.Invoice, TypesInvoices.InvoiceError> {
+        if(Principal.isAnonymous(caller)) {
+        return #err({
+            message = ?"Not Authorized";
+            kind = #NotAuthorized ;
+            });
+        };
+
+        switch (invoices.get(id)) {
+        case null {
+            #err({
+            message = ?"Invoice not found";
+            kind = #NotFound;
+            });
+        };
+        case (? v) {
+            #ok((v))
+        };
+        };
+    };
+
+    public shared ({caller}) func createInvoice ( token : Text, amount : Nat, quantity : Nat ) : async Result.Result<TypesInvoices.CreateInvoiceResult, TypesInvoices.InvoiceError> {
+    
+        if(Principal.isAnonymous(caller)) {
+        return #err({
+            message = ?"Not Authorized";
+            kind = #NotAuthorized ;
+            });
+        };
+        let invoiceId : Nat = counter + 1;
+        counter+=1;
+        let account = await getAccount( 
+        token,
+        caller,
+        invoiceId,
+        Principal.fromActor(this)
+        );
+        switch(account){
+        case (#err(e)) {
+            return #err(e);
+        };
+        case (#ok(result)){
+            
+            switch(result){
+            case (#text (textAccount)){
+                invoices.put(invoiceId, { id = invoiceId; creator = artistRegistry; amount = amount; token = "ICP"; destination=textAccount; quantity = quantity });
+    
+                #ok({
+                    invoice = {
+                    id=invoiceId;
+                    creator=artistRegistry;
+                    amount=amount;
+                    token=token;
+                    destination=textAccount;
+                    quantity=quantity;
+                };
+                subAccount=textAccount;
+                });
+            };
+            };
+        };
+        case (_){
+            #err({
+            message = ?"Not Yet";
+            kind = #NotYet;
+            });
+        } 
+        };
+    };
+
+    public shared ({caller}) func isVerifyPayment (invoiceId : Nat, nftCanId : Principal, tokenId : Text, to : Principal ) : async Result.Result<(), TypesInvoices.InvoiceError> {
+
+        let canisterId = Principal.fromActor(this);
+        let currentInvoice = await getInvoice(invoiceId);
+         
+        switch (currentInvoice) {
+          case (#err(e)) {
+            return #err(e);
+          };
+          case (#ok(invoice)) {
+             
+            switch (invoice.token){
+              case("ICP"){
+                let balanceResult = await ICP.balance(invoice.destination);
+                switch(balanceResult){
+                    case(#err err) {
+                        return #err({
+                            message = ?"Error in get balance";
+                            kind = #Other;
+                        });
+                    };
+                    case(#ok balance){
+                        if(balance < invoice.amount){
+                            return #err({
+                                message = ?"Insuficient balance for validate invoice";
+                                kind = #Other;
+                            });
+                        }else{
+                            let transferResult = await transferAuthNFT(nftCanId, to, tokenId);
+                            switch(transferResult){
+                                case(#err err) {
+                                    return #err({
+                                        message = ?"Error in transfer NFT";
+                                        kind = #Other;
+                                    });
+                                }; 
+                                case (#ok){
+                                    #ok(()); 
+                                };   
+                            };
+                        };
+                    };
+                };
+            };
+              case(_){
+                return #err({
+                  message = ?"This token is not yet supported. Currently, this canister supports ICP.";
+                  kind = #NotFound;
+                });
+              };
+            };
+          };
+        };
+    };
+
+        private func transferAuthNFT (nftCanId : Principal, to : Principal, id : Text) : async Result.Result<(), NFTTypes.Error> {
+
+        let service = actor(Principal.toText(nftCanId)): actor {
+            transfer : (Principal, Text) -> async ({ 
+                #err : NFTTypes.Error;
+                #ok;
+             });
+             authorize : (Token.AuthorizeRequest) -> async ({
+                #err : NFTTypes.Error;
+                #ok;
+             });
+        };
+
+        switch(await service.transfer(to, id)) {
+            case (#ok) {
+                switch(await service.authorize({
+                    id = id;
+                    p = Principal.fromActor(this);
+                    isAuthorized = false;
+                })) {
+                    case (#ok) { #ok(());  };
+                    case (#err(e)) { return #err(e) };
+                };
+            };
+            case (#err(e)) { return #err(e) };
+        };
+    };
+
+    private func getAccount (token : Text, principal : Principal, invoiceId : Nat, canisterId : Principal)  :  async Result.Result<TypesInvoices.AccountIdentifier, TypesInvoices.InvoiceError> {
+      switch(token){
+        case("ICP"){
+          let account = Utils.getICPAccountIdentifier({
+            principal = canisterId;
+            subaccount = Utils.generateInvoiceSubaccount({
+              caller = principal;
+              id = invoiceId;
+            })
+          });
+          let hexEncoded = Hex.encode(Blob.toArray(account));
+          let result : TypesInvoices.AccountIdentifier = #text(hexEncoded);
+          return #ok(result);
+        };
+        case(_){
+           #err({
+          message = ?"Invalid token";
+          kind = #InvalidToken ;
+        });
+        };
+      };
+    };
+
 
     public query({caller}) func authorizedArr () : async Result.Result<[Principal], Error> {
 
@@ -92,6 +281,15 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
         return #ok((Principal.fromActor(this), assetCanisterId));
 
     };
+
+        public query ({caller}) func getContractInfo() : async Types.ContractInfo {
+        return {
+            heapSize = Prim.rts_heap_size();
+            memorySize = Prim.rts_memory_size();
+            maxLiveSize = Prim.rts_max_live_size();
+            cycles = Cycles.balance();
+        };
+};
 
     public shared({caller}) func initNFTCan (nftCanId : Principal, creator : Principal) : async Result.Result<(), Error> {
         

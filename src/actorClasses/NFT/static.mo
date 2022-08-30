@@ -1,13 +1,15 @@
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
+import Debug "mo:base/Debug";
 import HashMap "mo:base/HashMap";
-import Http "http";
 import Iter "mo:base/Iter";
 import Result "mo:base/Result";
-import Staged "staged";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
+
+import Http "http";
+import Staged "staged";
 import Types "types";
 
 module Static {
@@ -74,6 +76,7 @@ module Static {
             let listAssets = Array.init<(Text, Text, Nat)>(
                 assets.size(), ("", "", 0),
             );
+            Debug.print(debug_show(assets.size()));
             var i = 0;
             for ((k, v) in assets.entries()) {
                 listAssets[i] := (
@@ -83,6 +86,7 @@ module Static {
                 );
                 i += 1;
             };
+            Debug.print(debug_show(Array.freeze(listAssets)));
             return Array.freeze(listAssets);
         };
 

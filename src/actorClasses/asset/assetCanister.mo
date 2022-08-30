@@ -1,21 +1,22 @@
 import Array "mo:base/Array";
-import Buffer "mo:base/Buffer";
-import AssetStorage "mo:asset-storage/AssetStorage";
 import Blob "mo:base/Blob";
+import Buffer "mo:base/Buffer";
+import Cycles "mo:base/ExperimentalCycles";
+import Debug "mo:base/Debug";
 import Error "mo:base/Error";
 import Hash "mo:base/Hash";
 import HashMap "mo:base/HashMap";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Order "mo:base/Order";
+import Prim "mo:⛔"; // toLower...
+import Principal "mo:base/Principal";
 import Result "mo:base/Result";
-import SHA256 "mo:crypto/SHA/SHA256";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
-import Debug "mo:base/Debug";
-import Principal "mo:base/Principal";
 
-import Prim "mo:⛔"; // toLower...
+import AssetStorage "mo:asset-storage/AssetStorage";
+import SHA256 "mo:crypto/SHA/SHA256";
 
 import State "./state";
 
@@ -81,6 +82,15 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
 
     private func _clear() {
         state := State.State(state.authorized, []);
+    };
+
+    public query ({caller}) func getContractInfo() : async State.ContractInfo {
+        return {
+            heapSize = Prim.rts_heap_size();
+            memorySize = Prim.rts_memory_size();
+            maxLiveSize = Prim.rts_max_live_size();
+            cycles = Cycles.balance();
+        };
     };
 
     public shared({caller}) func commit_batch(
@@ -180,6 +190,8 @@ shared({caller = owner}) actor class Assets(artistPpal : Principal) : async Asse
             };
         };
     };
+
+    
 
     public shared({caller}) func create_chunk({
         content  : [Nat8];

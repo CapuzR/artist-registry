@@ -26,6 +26,7 @@ module {
         };
     };
 
+    
     public type CreateInvoiceResult = {
         invoice:Invoice;
         subAccount:Text;
@@ -51,6 +52,7 @@ module {
     public type CreateCanistersResult = {
         canisterId:Text;
         assetCanisters:[Text];
+        ok:Bool;
     };
 
 

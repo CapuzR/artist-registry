@@ -3,16 +3,17 @@ import Blob "mo:base/Blob";
 import Buffer "mo:base/Buffer";
 import Hash "mo:base/Hash";
 import HashMap "mo:base/HashMap";
-import Http "http";
 import Iter "mo:base/Iter";
-import MapHelper "mapHelper";
 import Nat "mo:base/Nat";
 import Principal "mo:base/Principal";
-import Property "property";
 import Result "mo:base/Result";
-import Staged "staged";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
+
+import Http "http";
+import MapHelper "mapHelper";
+import Property "property";
+import Staged "staged";
 import Types "types";
 
 module Token {
@@ -142,6 +143,22 @@ module Token {
                     switch (nftToOwner.get(t)) {
                         case (null) { return (t, (null, ps), n); };
                         case (? p)  { return (t, (?p,   ps), n); };
+                    };
+                },
+            );
+        };
+
+        public func softEntries() : Iter.Iter<(Text, (?Principal, [Principal]), Property.Properties)> {
+            return Iter.map<(Text, Token), (Text, (?Principal, [Principal]), Property.Properties)>(
+                nfts.entries(),
+                func((t, n) : (Text, Token)) : (Text, (?Principal, [Principal]), Property.Properties) {
+                    let ps = switch (authorized.get(t)) {
+                        case (null) { []; };
+                        case (? v)  { v;  };
+                    };
+                    switch (nftToOwner.get(t)) {
+                        case (null) { return (t, (null, ps), n.properties); };
+                        case (? p)  { return (t, (?p,   ps), n.properties); };
                     };
                 },
             );

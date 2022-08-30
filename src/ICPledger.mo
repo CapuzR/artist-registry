@@ -21,7 +21,7 @@ module {
             };
             case (#ok account) {
                 //Local Faucet canister.
-                let ledger = actor("rrkah-fqaaa-aaaaa-aaaaq-cai"): actor {
+                let ledger = actor("rdmx6-jaaaa-aaaaa-aaadq-cai"): actor {
                     account_balance : query (Types.AccountBalanceArgs) -> async (Types.Tokens)
                 };
                 let balance = await ledger.account_balance({account = Blob.fromArray(account)});

@@ -81,4 +81,12 @@ module {
         #BadParameters;
         #Unknown : Text;
     };
+
+     public type ContractInfo = {
+        heapSize : Nat; 
+        memorySize : Nat;
+        maxLiveSize : Nat;
+        cycles : Nat; 
+    };
+
 }
