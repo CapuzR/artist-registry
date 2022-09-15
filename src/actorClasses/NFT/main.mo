@@ -272,8 +272,33 @@ public query ({caller}) func listAssets() : async [(Text, (?Principal, [Principa
         nfts.ownerOf(id);
     };
 
+    public shared ({caller}) func ownerOfPublic(id : Text) : async Result.Result<Principal, Types.Error> {
+        nfts.ownerOf(id);
+    };
+
     // Transfers one of your own NFTs to another principal.
     public shared ({caller}) func transfer(to : Principal, id : Text) : async Result.Result<(), Types.Error> {
+        let owner = switch (_canChange(caller, id)) {
+            case (#err(e)) { return #err(e); };
+            case (#ok(v))  { v; };
+        };
+        let res = await nfts.transfer(to, id);
+        ignore _emitEvent({
+            createdAt     = Time.now();
+            event         = #TokenEvent(
+                #Transfer({
+                    from = owner; 
+                    to   = to; 
+                    id   = id;
+                }));
+            topupAmount   = TOPUP_AMOUNT;
+            topupCallback = wallet_receive;
+        });
+        res;
+    };
+
+    public shared ({caller}) func burm(id : Text) : async Result.Result<(), Types.Error> {
+        let to : Principal = Principal.fromText("e3mmv-5qaaa-aaaah-aadma-cai");
         let owner = switch (_canChange(caller, id)) {
             case (#err(e)) { return #err(e); };
             case (#ok(v))  { v; };

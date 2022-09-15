@@ -172,6 +172,33 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
         };
     };
 
+    public shared ({caller}) func isVerifyTransferWH (canisterId: Text, ids : [Text]) : async Result.Result<(), TypesInvoices.InvoiceError> {
+            for(id in ids.vals()) {
+                let nftCan : Principal = Principal.fromText(canisterId);
+                let nfts = await ownerOfNFTCan(nftCan, id);
+                Debug.print(debug_show(nfts));
+                switch(nfts){
+                    case (#ok data){
+                        let canisterId = Principal.toText(data);
+                        if(canisterId == "e3mmv-5qaaa-aaaah-aadma-cai"){
+                            return #ok(());
+                        } else {
+                            return #err({
+                            message = ?"Error in verify transfer";
+                            kind = #NotFound;
+                        });    
+                        }
+                    };
+                    case(_){
+                        return #err({
+                        message = ?"Error in verify transfer";
+                        kind = #NotFound;
+                        });
+                    };
+                }
+            };
+            #ok(())
+    };
         private func transferAuthNFT (nftCanId : Principal, to : Principal, id : Text) : async Result.Result<(), NFTTypes.Error> {
 
         let service = actor(Principal.toText(nftCanId)): actor {
@@ -187,7 +214,7 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
 
         switch(await service.transfer(to, id)) {
             case (#ok) {
-                switch(await service.authorize({
+                switch(await service.authorize({    
                     id = id;
                     p = Principal.fromActor(this);
                     isAuthorized = false;
@@ -305,6 +332,19 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
         };
 
         #ok(await service.init());
+
+    };
+
+    private func ownerOfNFTCan (nftCanId : Principal, id : Text) : async Result.Result<Principal, NFTTypes.Error> {
+        
+        let service = actor(Principal.toText(nftCanId)): actor {
+            ownerOfPublic: (id : Text) -> async ({ 
+                #err : NFTTypes.Error;
+                #ok : Principal;
+             });
+        };
+        // switch(await service.ownerOfPublic(id : Text))
+        await service.ownerOfPublic(id);
 
     };
 
