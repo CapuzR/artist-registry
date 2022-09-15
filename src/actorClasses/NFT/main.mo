@@ -1,4 +1,5 @@
 import Array "mo:base/Array";
+import Buffer "mo:base/Buffer";
 import Blob "mo:base/Blob";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
 import Iter "mo:base/Iter";
@@ -209,6 +210,32 @@ shared({ caller = artistCanister }) actor class NFT(contractMetadata : Types.Con
                 #ok(id);
             };
         };
+    };
+    
+    public shared ({caller}) func mintWH(eggs : [Token.Egg]) : async Result.Result<[Text],Types.Error> {
+        assert(_isOwner(caller));
+        let idsBuff : Buffer.Buffer<Text> = Buffer.Buffer(eggs.size());
+        label l for (egg in eggs.vals()) {
+            switch (await nfts.mint(Principal.fromActor(NFTService), egg)) {
+                case (#err(e)) { return #err(#FailedToWrite(e)); };
+                case (#ok(id, owner)) {
+                    ignore _emitEvent({
+                        createdAt     = Time.now();
+                        event         = #ContractEvent(
+                            #Mint({
+                                id    = id; 
+                                owner = owner;
+                            }),
+                        );
+                        topupAmount   = TOPUP_AMOUNT;
+                        topupCallback = wallet_receive;
+                    });
+                    idsBuff.add(id);
+                    continue l;
+                };
+            };
+        };
+        #ok(idsBuff.toArray());
     };
 
     // Writes a part of an NFT to the staged data. 

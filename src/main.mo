@@ -45,25 +45,28 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
 
     //-------------------Invoices states;
 
-     var invoices = HashMap.HashMap<Nat, Types.Invoice>(1, Nat.equal, Hash.hash);
-     var counter : Nat = 0;
+    var invoices = HashMap.HashMap<Nat, Types.Invoice>(1, Nat.equal, Hash.hash);
+    var counter : Nat = 0;
+    stable var invoicePpal : [(Nat, Principal)] = []; //invoiceId,artistPrincipal
+    let invoicePpalRels = Rels.Rels<Nat, Principal>((Hash.hash, Principal.hash), (Nat.equal, Principal.equal), invoicePpal);
+    
     //  var owner : Principal =  Principal.fromActor(ArtistRegistry);
 
     //-------------------Invoices methods;
 
-    public shared query ({caller}) func getInvoice (id:Nat) : async Result.Result<Types.Invoice, Types.InvoiceError> {
+    public shared query ({caller}) func getInvoice ( id : Nat) : async Result.Result<Types.Invoice, Types.InvoiceError> {
         if(Principal.isAnonymous(caller)) {
-        return #err({
-            message = ?"Not Authorized";
-            kind = #NotAuthorized ;
+            return #err({
+                message = ?"Not Authorized";
+                kind = #NotAuthorized ;
             });
         };
 
         switch (invoices.get(id)) {
         case null {
             #err({
-            message = ?"Invoice not found";
-            kind = #NotFound;
+                message = ?"Invoice not found";
+                kind = #NotFound;
             });
         };
         case (? v) {
@@ -71,6 +74,32 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
         };
         };
     };
+    
+    public shared query ({caller}) func getInvoicesByPrincipal(ppal : Principal) : async Result.Result<[(Nat, Types.Invoice)], Types.InvoiceError> {
+        if(Principal.isAnonymous(caller)) {
+            return #err({
+                message = ?"Not Authorized";
+                kind = #NotAuthorized ;
+            });
+        };
+
+        let invoicesIds : [Nat] = invoicePpalRels.get1(ppal);
+        let invBuff : Buffer.Buffer<(Nat, Types.Invoice)> = Buffer.Buffer(0);
+
+        label l for (invId in invoicesIds.vals()) {
+            switch (invoices.get(invId)) {
+                case null {
+                    continue l;
+                };
+                case (? invoice) {
+                    invBuff.add((invId, invoice));
+                };
+            };
+        };
+
+        #ok(invBuff.toArray());
+    };
+
 
     public shared ({caller}) func createInvoice ( token : Text, amount : Nat, quantity : Nat ) : async Result.Result<Types.CreateInvoiceResult, Types.InvoiceError> {
     
@@ -83,10 +112,10 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
         let invoiceId : Nat = counter + 1;
         counter+=1;
         let account = await getAccount( 
-        token,
-        caller,
-        invoiceId,
-        Principal.fromActor(ArtistRegistry)
+            token,
+            caller,
+            invoiceId,
+            Principal.fromActor(ArtistRegistry)
         );
         switch(account){
         case (#err(e)) {
@@ -97,16 +126,17 @@ shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = Artist
             switch(result){
             case (#text (textAccount)){
                 invoices.put(invoiceId, { id = invoiceId; creator = owner; amount = amount; token = "ICP"; destination=textAccount; quantity = quantity });
-    
+                invoicePpalRels.put(invoiceId, caller);
+
                 #ok({
                     invoice = {
-                    id=invoiceId;
-                    creator=owner;
-                    amount=amount;
-                    token=token;
-                    destination=textAccount;
-                    quantity=quantity;
-                };
+                        id=invoiceId;
+                        creator=owner;
+                        amount=amount;
+                        token=token;
+                        destination=textAccount;
+                        quantity=quantity;
+                    };
                 subAccount=textAccount;
                 });
             };

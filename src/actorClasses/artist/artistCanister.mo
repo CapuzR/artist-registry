@@ -5,6 +5,7 @@ import Cycles "mo:base/ExperimentalCycles";
 import Debug "mo:base/Debug";
 import Hash       "mo:base/Hash";
 import HashMap    "mo:base/HashMap";
+import Iter    "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Nat64 "mo:base/Nat64";
 import Prim "mo:⛔";
@@ -46,6 +47,26 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
 
      var invoices = HashMap.HashMap<Nat, TypesInvoices.Invoice>(1, Nat.equal, Hash.hash);
      var counter : Nat = 0;
+
+     public shared query ({caller}) func getInvoices() : async Result.Result<[(Nat, TypesInvoices.Invoice)], TypesInvoices.InvoiceError> {
+        
+        if(not Utils.isAuthorized(caller, owners)) {
+            return #err(
+                {
+                    message = ?"Invoice not found";
+                    kind = #NotAuthorized;
+                }
+            );
+        };
+
+        let invBuff : Buffer.Buffer<(Nat, TypesInvoices.Invoice)> = Buffer.Buffer(0);
+
+        for (inv in invoices.entries()) {
+            invBuff.add(inv);
+        };
+
+        #ok(invBuff.toArray());
+     };
 
      public shared query ({caller}) func getInvoice (id:Nat) : async Result.Result<TypesInvoices.Invoice, TypesInvoices.InvoiceError> {
         if(Principal.isAnonymous(caller)) {
@@ -173,15 +194,15 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
     };
 
     public shared ({caller}) func isVerifyTransferWH (canisterId: Text, ids : [Text]) : async Result.Result<(), TypesInvoices.InvoiceError> {
-            for(id in ids.vals()) {
+            label l for(id in ids.vals()) {
                 let nftCan : Principal = Principal.fromText(canisterId);
                 let nfts = await ownerOfNFTCan(nftCan, id);
-                Debug.print(debug_show(nfts));
+                
                 switch(nfts){
                     case (#ok data){
                         let canisterId = Principal.toText(data);
                         if(canisterId == "e3mmv-5qaaa-aaaah-aadma-cai"){
-                            return #ok(());
+                            continue l;
                         } else {
                             return #err({
                             message = ?"Error in verify transfer";
@@ -396,6 +417,7 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
                 name = nFTMetadata.name;
                 symbol = nFTMetadata.symbol;
                 supply = nFTMetadata.supply;
+                value = nFTMetadata.value;
                 website = nFTMetadata.website;
                 socials = nFTMetadata.socials;
                 prixelart = nFTMetadata.prixelart;
@@ -410,6 +432,7 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
             name = nFTMetadata.name;
             symbol = nFTMetadata.symbol;
             supply = nFTMetadata.supply;
+            value = nFTMetadata.value;
             website = nFTMetadata.website;
             socials = nFTMetadata.socials;
             prixelart = nFTMetadata.prixelart;

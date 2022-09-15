@@ -34,6 +34,7 @@ module {
     public type NFTMetadata = {
         name : Text;
         symbol : Text;
+        value : ?Nat;
         supply : ?Nat;
         website : ?Text;
         socials : [?(Text, Text)];
@@ -44,6 +45,7 @@ module {
         name : Text;
         symbol : Text;
         supply : ?Nat;
+        value : ?Nat;
         website : ?Text;
         socials : [?(Text, Text)];
         prixelart : ?Text;

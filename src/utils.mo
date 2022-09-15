@@ -13,7 +13,8 @@ import A          "./Account";
 import CRC32      "./CRC32";
 import Hex        "./Hex";
 import SHA224     "./SHA224";
-import Types      "./types"
+import Types      "./types";
+import Prim "mo:⛔";
 
 module {
 
@@ -50,9 +51,6 @@ module {
     public func getICPAccountIdentifier(args : GetICPAccountIdentifierArgs) : Blob {
         A.accountIdentifier(args.principal, args.subaccount);
     };
-
-    // 
-
 
     public func isInDetails (details : [(Text, Types.DetailValue)], v : Text) : Bool {
         for( d in details.vals() ) {
