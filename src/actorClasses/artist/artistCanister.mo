@@ -245,7 +245,7 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
                 return false;
     };
 
-    public shared ({caller}) func isVerifyTransferWH (canisterId: Text, ids : [Text], invoiceId : Nat) : async Result.Result<(), TypesInvoices.InvoiceError> {
+    public shared ({caller}) func isVerifyTransferWH (canisterId: Text, ids : [Text], invoiceId : Nat, serviceCanId : Principal) : async Result.Result<(), TypesInvoices.InvoiceError> {
         label l for(id in ids.vals()) {
             let currentInvoice = await getInvoice(invoiceId);
             switch (currentInvoice) {
@@ -330,35 +330,71 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
                 };
             };
         };
+
+        switch(await mintNFT(serviceCanId, caller, invoiceId)) {
+            case (#err(e)) {
+                return #err({
+                    message = ?"Won't be able to mint.";
+                    kind = #Other;
+                });
+            };
+            case (#ok(v)) {
+                return #ok(());
+            }
+        };
         #ok(());
     };
-        private func transferAuthNFT (nftCanId : Principal, to : Principal, id : Text) : async Result.Result<(), NFTTypes.Error> {
 
-        let service = actor(Principal.toText(nftCanId)): actor {
-            transfer : (Principal, Text) -> async ({ 
+    private func mintNFT(serviceCanId : Principal, caller : Principal, invoiceId : Nat) : async Result.Result<Text, NFTTypes.Error> {
+        let service = actor(Principal.toText(serviceCanId)): actor {
+            mint: (egg : Token.Egg) -> async ({ 
                 #err : NFTTypes.Error;
-                #ok;
-             });
-             authorize : (Token.AuthorizeRequest) -> async ({
-                #err : NFTTypes.Error;
-                #ok;
+                #ok : Text;
              });
         };
-
-        switch(await service.transfer(to, id)) {
-            case (#ok) {
-                switch(await service.authorize({    
-                    id = id;
-                    p = Principal.fromActor(this);
-                    isAuthorized = false;
-                })) {
-                    case (#ok) { #ok(());  };
-                    case (#err(e)) { return #err(e) };
-                };
-            };
-            case (#err(e)) { return #err(e) };
-        };
+        // switch(await service.ownerOfPublic(id : Text))
+        await service.mint({
+            payload = #Payload(Blob.fromArray([1,2,3]));
+            contentType = "Service";
+            owner       = ?caller;
+            properties  = [
+                {
+                    name = "invoiceId";
+                    value = #Nat(invoiceId);
+                    immutable = true;
+                }
+            ];
+            isPrivate = false;
+        });
     };
+
+    private func transferAuthNFT (nftCanId : Principal, to : Principal, id : Text) : async Result.Result<(), NFTTypes.Error> {
+
+    let service = actor(Principal.toText(nftCanId)): actor {
+        transfer : (Principal, Text) -> async ({ 
+            #err : NFTTypes.Error;
+            #ok;
+            });
+            authorize : (Token.AuthorizeRequest) -> async ({
+            #err : NFTTypes.Error;
+            #ok;
+            });
+    };
+
+    switch(await service.transfer(to, id)) {
+        case (#ok) {
+            switch(await service.authorize({    
+                id = id;
+                p = Principal.fromActor(this);
+                isAuthorized = false;
+            })) {
+                case (#ok) { #ok(());  };
+                case (#err(e)) { return #err(e) };
+            };
+        };
+        case (#err(e)) { return #err(e) };
+    };
+};
 
     private func getAccount (token : Text, principal : Principal, invoiceId : Nat, canisterId : Principal)  :  async Result.Result<TypesInvoices.AccountIdentifier, TypesInvoices.InvoiceError> {
       switch(token){
