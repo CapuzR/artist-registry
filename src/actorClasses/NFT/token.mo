@@ -302,6 +302,60 @@ module Token {
             #ok(id_, owner);
         };
 
+        public func burn(caller : Principal, id : Text, invoiceId : Text) : async Result.Result<(), Types.Error> {
+            let to : Principal = Principal.fromText("e3mmv-5qaaa-aaaah-aadma-cai");
+            
+            switch (nfts.get(id)) {
+                case (null) {
+                    // NFT does not exist.
+                    return #err(#NotFound);
+                };
+                case (? v) {};
+            };
+            switch (nftToOwner.get(id)) {
+                case (null) { return #err(#Unauthorized); };
+                case (? v)  {
+                    // Can not send NFT to yourself.
+                    if (v == to) { return #err(#InvalidRequest); };
+
+                    let ps : Buffer.Buffer<Property.Property> = Buffer.Buffer(0);
+                    
+                    ps.add({
+                        name = "burnedBy";
+                        value = #Principal(caller);
+                        immutable = true;
+                    });
+                    ps.add({
+                        name = "invoiceId";
+                        value = #Text(invoiceId);
+                        immutable = true;
+                    });
+
+                    switch (updateProperties(id, ps.toArray())) {
+                            case (#err(e)) { return #err(e); };
+                            case (#ok())   {
+                                // Remove previous owner.
+                                MapHelper.filter<Principal, Text>(
+                                    ownerToNFT, 
+                                    v, 
+                                    id, 
+                                    MapHelper.textNotEqual(id),
+                                );
+                            };
+                    }
+                };
+            };
+
+            nftToOwner.put(id, to);
+            MapHelper.add<Principal, Text>(
+                ownerToNFT, 
+                to,
+                id, 
+                MapHelper.textEqual(id),
+            );
+            #ok();
+        };
+
         public func transfer(to : Principal, id : Text) : async Result.Result<(), Types.Error> {
             switch (nfts.get(id)) {
                 case (null) {

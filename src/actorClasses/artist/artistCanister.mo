@@ -45,10 +45,10 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
     stable var authorized : [Principal] = [artistRegistry, artistMeta.principal_id];
     stable var owners : [Principal] = [artistRegistry, artistMeta.principal_id];
 
-     var invoices = HashMap.HashMap<Nat, TypesInvoices.Invoice>(1, Nat.equal, Hash.hash);
+     var invoices = HashMap.HashMap<Nat, Types.Invoice>(1, Nat.equal, Hash.hash);
      var counter : Nat = 0;
 
-     public shared query ({caller}) func getInvoices() : async Result.Result<[(Nat, TypesInvoices.Invoice)], TypesInvoices.InvoiceError> {
+     public shared query ({caller}) func getInvoices() : async Result.Result<[(Nat, Types.Invoice)], TypesInvoices.InvoiceError> {
         
         if(not Utils.isAuthorized(caller, owners)) {
             return #err(
@@ -59,7 +59,7 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
             );
         };
 
-        let invBuff : Buffer.Buffer<(Nat, TypesInvoices.Invoice)> = Buffer.Buffer(0);
+        let invBuff : Buffer.Buffer<(Nat, Types.Invoice)> = Buffer.Buffer(0);
 
         for (inv in invoices.entries()) {
             invBuff.add(inv);
@@ -68,7 +68,7 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
         #ok(invBuff.toArray());
      };
 
-     public shared query ({caller}) func getInvoice (id:Nat) : async Result.Result<TypesInvoices.Invoice, TypesInvoices.InvoiceError> {
+     public shared query ({caller}) func getInvoice (id:Nat) : async Result.Result<Types.Invoice, TypesInvoices.InvoiceError> {
         if(Principal.isAnonymous(caller)) {
         return #err({
             message = ?"Not Authorized";
@@ -77,68 +77,82 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
         };
 
         switch (invoices.get(id)) {
-        case null {
-            #err({
-            message = ?"Invoice not found";
-            kind = #NotFound;
-            });
-        };
-        case (? v) {
-            #ok((v))
-        };
-        };
-    };
-
-    public shared ({caller}) func createInvoice ( token : Text, amount : Nat, quantity : Nat ) : async Result.Result<TypesInvoices.CreateInvoiceResult, TypesInvoices.InvoiceError> {
-    
-        if(Principal.isAnonymous(caller)) {
-        return #err({
-            message = ?"Not Authorized";
-            kind = #NotAuthorized ;
-            });
-        };
-        let invoiceId : Nat = counter + 1;
-        counter+=1;
-        let account = await getAccount( 
-        token,
-        caller,
-        invoiceId,
-        Principal.fromActor(this)
-        );
-        switch(account){
-        case (#err(e)) {
-            return #err(e);
-        };
-        case (#ok(result)){
-            
-            switch(result){
-            case (#text (textAccount)){
-                invoices.put(invoiceId, { id = invoiceId; creator = artistRegistry; amount = amount; token = "ICP"; destination=textAccount; quantity = quantity });
-    
-                #ok({
-                    invoice = {
-                    id=invoiceId;
-                    creator=artistRegistry;
-                    amount=amount;
-                    token=token;
-                    destination=textAccount;
-                    quantity=quantity;
-                };
-                subAccount=textAccount;
+            case null {
+                #err({
+                    message = ?"Invoice not found";
+                    kind = #NotFound;
                 });
             };
+            case (? v) {
+                #ok((v))
             };
-        };
-        case (_){
-            #err({
-            message = ?"Not Yet";
-            kind = #NotYet;
-            });
-        } 
         };
     };
 
-    public shared ({caller}) func isVerifyPayment (invoiceId : Nat, nftCanId : Principal, tokenId : Text, to : Principal ) : async Result.Result<(), TypesInvoices.InvoiceError> {
+    public shared ({caller}) func createInvoice ( token : Text, amount : Nat, quantity : Nat, tokenIndexes : ?[Text] ) : async Result.Result<Types.CreateInvoiceResult, TypesInvoices.InvoiceError> {
+    
+        if(Principal.isAnonymous(caller)) {
+            return #err({
+                message = ?"Not Authorized";
+                kind = #NotAuthorized ;
+            });
+        };
+
+        let invoiceId : Nat = counter + 1;
+        counter+=1;
+
+        let account = await getAccount(
+            token,
+            caller,
+            invoiceId,
+            Principal.fromActor(this)
+        );
+
+        switch(account){
+            case (#err(e)) {
+                return #err(e);
+            };
+            case (#ok(result)){
+                switch(result){
+                    case (#text (textAccount)){
+                        invoices.put(
+                            invoiceId, 
+                            { 
+                                id = invoiceId; 
+                                creator = artistRegistry; 
+                                amount = amount; 
+                                token = "ICP"; 
+                                destination=textAccount; 
+                                quantity = quantity;
+                                tokenIndexes = tokenIndexes;
+                            }
+                        );
+            
+                        #ok({
+                            invoice = {
+                                id = invoiceId;
+                                creator = artistRegistry;
+                                amount = amount;
+                                token = token;
+                                destination = textAccount;
+                                quantity = quantity;
+                                tokenIndexes = tokenIndexes;
+                            };
+                            subAccount = textAccount;
+                        });
+                    };
+                };
+            };
+            case (_){
+                #err({
+                message = ?"Not Yet";
+                kind = #NotYet;
+                });
+            } 
+        };
+    };
+
+    public shared ({caller}) func isVerifyPayment ( invoiceId : Nat, nftCanId : Principal ) : async Result.Result<(), TypesInvoices.InvoiceError> {
 
         let canisterId = Principal.fromActor(this);
         let currentInvoice = await getInvoice(invoiceId);
@@ -165,19 +179,30 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
                                 message = ?"Insuficient balance for validate invoice";
                                 kind = #Other;
                             });
-                        }else{
-                            let transferResult = await transferAuthNFT(nftCanId, to, tokenId);
-                            switch(transferResult){
-                                case(#err err) {
-                                    return #err({
-                                        message = ?"Error in transfer NFT";
-                                        kind = #Other;
-                                    });
-                                }; 
-                                case (#ok){
-                                    #ok(()); 
-                                };   
+                        } else {
+                            let tokenIds = await balanceOfNFTCan(nftCanId, canisterId);
+                            var count : Nat = 0;
+                            
+                            label l for (tokenId in tokenIds.vals()) {
+                                if(count <= invoice.quantity) {
+                                    let transferResult = await transferAuthNFT(nftCanId, caller, tokenId);
+                                    switch(transferResult){
+                                        case(#err err) {
+                                            return #err({
+                                                message = ?"Error in transfer NFT";
+                                                kind = #Other;
+                                            });
+                                        }; 
+                                        case (#ok){
+                                            continue l;
+                                        };   
+                                    };
+                                    count += 1;
+                                } else {
+                                    break l;
+                                };
                             };
+                            #ok(()); 
                         };
                     };
                 };
@@ -193,32 +218,108 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
         };
     };
 
-    public shared ({caller}) func isVerifyTransferWH (canisterId: Text, ids : [Text]) : async Result.Result<(), TypesInvoices.InvoiceError> {
-            label l for(id in ids.vals()) {
-                let nftCan : Principal = Principal.fromText(canisterId);
-                let nfts = await ownerOfNFTCan(nftCan, id);
-                
-                switch(nfts){
-                    case (#ok data){
-                        let canisterId = Principal.toText(data);
-                        if(canisterId == "e3mmv-5qaaa-aaaah-aadma-cai"){
-                            continue l;
-                        } else {
-                            return #err({
-                            message = ?"Error in verify transfer";
-                            kind = #NotFound;
-                        });    
-                        }
+    private func isIn(id : Text, tokenIndexes : ?[Text]) : Bool {
+
+        switch(tokenIndexes){
+            case (null) { return false; };
+            case ( ?tki ) {
+                for (i in tki.vals()) {
+                    if (i == id) {
+                        return true;
                     };
-                    case(_){
+                };
+                return false;
+            };
+        };
+    };
+
+    public shared ({caller}) func isVerifyTransferWH (canisterId: Text, ids : [Text], invoiceId : Nat) : async Result.Result<(), TypesInvoices.InvoiceError> {
+            
+        label l for(id in ids.vals()) {
+            let currentInvoice = await getInvoice(invoiceId);
+            switch (currentInvoice) {
+                case (#err(e)) {
+                    return #err(e);
+                };
+                case (#ok(invoice)) {
+                    if (isIn(id, invoice.tokenIndexes)) {
+                        let nftCan : Principal = Principal.fromText(canisterId);
+                        let ownerRes = await ownerOfNFTCan(nftCan, id);
+                        switch(ownerRes) {
+                            case (#err(e)) {
+                                return #err({
+                                    message = ?"Other";
+                                    kind = #Other;
+                                });
+                            };
+                            case (#ok(owner)) { 
+                                if(owner == Principal.fromText("e3mmv-5qaaa-aaaah-aadma-cai")){
+                                    switch(await getToken(nftCan, id)){
+                                        case (#err(e)) {
+                                            return #err({
+                                                message = ?"Other";
+                                                kind = #Other;
+                                            });
+                                        };
+                                        case (#ok(token)) {
+                                            label m for (prop in token.properties.vals()) {
+                                                if (prop.name == "burnedBy") {
+                                                    switch (prop.value) {
+                                                        case ( #Principal (val) ) { 
+                                                            if (val == caller) {
+                                                                if (prop.name == "invoiceId") {
+                                                                    switch (prop.value) {
+                                                                        case ( #Text (val) ) { 
+                                                                            if (val == invoiceId) {
+                                                                                continue l;
+                                                                            } else {
+                                                                                return #err({
+                                                                                    message = ?"Not the owner";
+                                                                                    kind = #NotFound;
+                                                                                });
+                                                                            };
+                                                                        };
+                                                                        case ( _ ) { 
+                                                                            
+                                                                        };
+                                                                    }
+                                                                };
+                                                            } else {
+                                                                return #err({
+                                                                    message = ?"Not the owner";
+                                                                    kind = #NotFound;
+                                                                });
+                                                            };
+                                                        };
+                                                        case ( _ ) { 
+                                                            
+                                                        };
+                                                    }
+                                                };
+                                            };
+                                            continue l;
+                                        };
+                                    };
+                                } else {
+                                    return #err({
+                                    message = ?"Error in verify transfer";
+                                    kind = #NotFound;
+                                }); 
+                                };
+                            };
+                            
+                        // let owner = Principal.toText(token.owner);
+                        };
+                    } else {
                         return #err({
-                        message = ?"Error in verify transfer";
-                        kind = #NotFound;
+                            message = ?"You're trying to pay with wrong WH.";
+                            kind = #NotFound;
                         });
                     };
-                }
+                };
             };
-            #ok(())
+        };
+        #ok(());
     };
         private func transferAuthNFT (nftCanId : Principal, to : Principal, id : Text) : async Result.Result<(), NFTTypes.Error> {
 
@@ -366,6 +467,42 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
         };
         // switch(await service.ownerOfPublic(id : Text))
         await service.ownerOfPublic(id);
+
+    };
+
+    private func balanceOfNFTCan (nftCanId : Principal, ppal : Principal) : async [Text] {
+        
+        let service = actor(Principal.toText(nftCanId)): actor {
+            balanceOfPublic: (ppal : Principal) -> async ([Text]);
+        };
+        // switch(await service.ownerOfPublic(id : Text))
+        await service.balanceOfPublic(ppal);
+
+    };
+
+    private func getTokens (nftCanId : Principal, ppal : Principal) : async Result.Result<[Token.Metadata], NFTTypes.Error> {
+        
+        let service = actor(Principal.toText(nftCanId)): actor {
+            tokenMetadataByOwner: (ppal : Principal) -> async ({ 
+                #err : NFTTypes.Error;
+                #ok : [Token.Metadata];
+             });
+        };
+        // switch(await service.ownerOfPublic(id : Text))
+        await service.tokenMetadataByOwner(ppal);
+
+    };
+
+    private func getToken (nftCanId : Principal, id : Text) : async Result.Result<Token.Metadata, NFTTypes.Error> {
+        
+        let service = actor(Principal.toText(nftCanId)): actor {
+            tokenMetadataByIndex: (id : Text) -> async ({ 
+                #err : NFTTypes.Error;
+                #ok : Token.Metadata;
+             });
+        };
+        // switch(await service.ownerOfPublic(id : Text))
+        await service.tokenMetadataByIndex(id);
 
     };
 

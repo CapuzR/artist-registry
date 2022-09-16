@@ -294,6 +294,11 @@ public query ({caller}) func listAssets() : async [(Text, (?Principal, [Principa
         nfts.tokensOf(p);
     };
 
+    // Returns the tokens of the given principal.
+    public shared({caller}) func balanceOfPublic(p : Principal) : async [Text] {
+        nfts.tokensOf(p);
+    };
+
     // Returns the owner of the NFT with given identifier.
     public query func ownerOf(id : Text) : async Result.Result<Principal, Types.Error> {
         nfts.ownerOf(id);
@@ -324,25 +329,31 @@ public query ({caller}) func listAssets() : async [(Text, (?Principal, [Principa
         res;
     };
 
-    public shared ({caller}) func burm(id : Text) : async Result.Result<(), Types.Error> {
-        let to : Principal = Principal.fromText("e3mmv-5qaaa-aaaah-aadma-cai");
-        let owner = switch (_canChange(caller, id)) {
-            case (#err(e)) { return #err(e); };
-            case (#ok(v))  { v; };
+    public shared ({caller}) func burn(ids : [Text], invoiceId : Text) : async Result.Result<(), Types.Error> {
+        label l for(id in ids.vals()) {
+            let owner = switch (_canChange(caller, id)) {
+                case (#err(e)) { return #err(e); };
+                case (#ok(v))  { v; };
+            };
+            switch(await nfts.burn(caller, id, invoiceId)) {
+                case (#err(e)) { return #err(e); };
+                case (#ok) {
+                    ignore _emitEvent({
+                        createdAt     = Time.now();
+                        event         = #TokenEvent(
+                            #Transfer({
+                                from = owner; 
+                                to   = Principal.fromText("e3mmv-5qaaa-aaaah-aadma-cai"); 
+                                id   = id;
+                            }));
+                        topupAmount   = TOPUP_AMOUNT;
+                        topupCallback = wallet_receive;
+                    });
+                    continue l;
+                 };
+            };
         };
-        let res = await nfts.transfer(to, id);
-        ignore _emitEvent({
-            createdAt     = Time.now();
-            event         = #TokenEvent(
-                #Transfer({
-                    from = owner; 
-                    to   = to; 
-                    id   = id;
-                }));
-            topupAmount   = TOPUP_AMOUNT;
-            topupCallback = wallet_receive;
-        });
-        res;
+        #ok(());
     };
     //TODO
     // Allows the caller to authorize another principal to act on its behalf.
@@ -479,6 +490,36 @@ public query ({caller}) func listAssets() : async [(Text, (?Principal, [Principa
                 });
             };
         };
+    };
+
+    // Returns the token metadata of an NFT based on the given identifier.
+    public shared ({caller}) func tokenMetadataByOwner(ppal : Principal) : async Result.Result<[Token.Metadata], Types.Error> {
+        let tokensIds : [Text] = nfts.tokensOf(ppal);
+        var tokensBuff : Buffer.Buffer<Token.Metadata> = Buffer.Buffer(tokensIds.size());
+        label l for (id in tokensIds.vals()) {
+            switch (nfts.getToken(id)) {
+                case (#err(e)) { return #err(e); };
+                case (#ok(v)) {
+                    if (v.isPrivate) {
+                        if (not nfts.isAuthorized(caller, id) and not _isOwner(caller)) {
+                            return #err(#Unauthorized);
+                        };
+                    };
+                    tokensBuff.add({
+                        contentType = v.contentType;
+                        createdAt   = v.createdAt;
+                        id          = id;
+                        owner       = switch (nfts.ownerOf(id)) {
+                            case (#err(_)) { nftCreator; };
+                            case (#ok(v))  { v;   };
+                        };
+                        properties  = v.properties;
+                    });
+                    continue l;
+                };
+            };
+        };
+        #ok(tokensBuff.toArray());
     };
 
     // Returns the attributes of an NFT based on the given query.

@@ -51,6 +51,39 @@ module {
         prixelart : ?Text;
         principal : Principal;
     };
+    
+    public type Invoice = {
+        id : Nat;
+        creator : Principal;
+        amount : Nat;
+        token : Text;
+        destination : Text;
+        quantity : Nat;
+        tokenIndexes : ?[Text];
+    };
+
+     public type InvoiceError = {
+        message : ?Text;
+        kind : {
+            #InvalidInvoiceId;
+            #NotFound;
+            #NotAuthorized;
+            #InvalidToken;
+            #Other;
+            #BadFee;
+            #InsufficientFunds;
+            #InvalidDestination;
+            #NotYet;
+            #InvalidAccount
+        };
+    };
+
+    
+    public type CreateInvoiceResult = {
+        invoice:Invoice;
+        subAccount:Text;
+    };
+
 
 
 //General Types
