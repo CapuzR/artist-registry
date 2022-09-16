@@ -59,7 +59,7 @@ module {
         token : Text;
         destination : Text;
         quantity : Nat;
-        tokenIndexes : ?[Text];
+        tokenIndexes : [Text];
     };
 
      public type InvoiceError = {

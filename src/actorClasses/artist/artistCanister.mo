@@ -89,7 +89,18 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
         };
     };
 
-    public shared ({caller}) func createInvoice ( token : Text, amount : Nat, quantity : Nat, tokenIndexes : ?[Text] ) : async Result.Result<Types.CreateInvoiceResult, TypesInvoices.InvoiceError> {
+    private func getWHCanId () : ?Principal {
+        label l for (canMeta in nftCanisters.vals()) {
+            if (Text.contains(canMeta.name, #text("WH"))) {
+                return ?canMeta.principal;
+            } else {
+                continue l;
+            };
+        };
+        null;
+    };
+
+    public shared ({caller}) func createInvoice ( token : Text, amount : Nat, quantity : Nat ) : async Result.Result<Types.CreateInvoiceResult, TypesInvoices.InvoiceError> {
     
         if(Principal.isAnonymous(caller)) {
             return #err({
@@ -97,7 +108,19 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
                 kind = #NotAuthorized ;
             });
         };
-
+        var sumTokenIds : [Text] = [];
+        var tokenIds : Buffer.Buffer<Text> = Buffer.Buffer(0);
+        switch (getWHCanId()) {
+            case (null) { };
+            case (?wHCanId) {
+                sumTokenIds := await balanceOfNFTCan(wHCanId, caller);
+                var count : Nat = 0;
+                while (count < quantity) {
+                    tokenIds.add(sumTokenIds[count]);
+                    count += 1;
+                };
+            };
+        };
         let invoiceId : Nat = counter + 1;
         counter+=1;
 
@@ -124,7 +147,7 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
                                 token = "ICP"; 
                                 destination=textAccount; 
                                 quantity = quantity;
-                                tokenIndexes = tokenIndexes;
+                                tokenIndexes = tokenIds.toArray();
                             }
                         );
             
@@ -136,26 +159,19 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
                                 token = token;
                                 destination = textAccount;
                                 quantity = quantity;
-                                tokenIndexes = tokenIndexes;
+                                tokenIndexes = tokenIds.toArray();
                             };
                             subAccount = textAccount;
                         });
                     };
                 };
             };
-            case (_){
-                #err({
-                message = ?"Not Yet";
-                kind = #NotYet;
-                });
-            } 
         };
     };
 
-    public shared ({caller}) func isVerifyPayment ( invoiceId : Nat, nftCanId : Principal, wHNFTCanId : Principal ) : async Result.Result<(), TypesInvoices.InvoiceError> {
+    public shared ({caller}) func isVerifyPayment ( invoiceId : Nat, nftCanId : Principal ) : async Result.Result<(), TypesInvoices.InvoiceError> {
 
         let currentInvoice = await getInvoice(invoiceId);
-         
         switch (currentInvoice) {
           case (#err(e)) {
             return #err(e);
@@ -179,11 +195,11 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
                                 kind = #Other;
                             });
                         } else {
-                            let tokenIds = await balanceOfNFTCan(nftCanId, wHNFTCanId);
+                            let tokenIds = await balanceOfNFTCan(nftCanId, nftCanId);
                             var count : Nat = 0;
                             
                             label l for (tokenId in tokenIds.vals()) {
-                                if(count <= invoice.quantity) {
+                                if(count < invoice.quantity) {
                                     let transferResult = await transferAuthNFT(nftCanId, caller, tokenId);
                                     switch(transferResult){
                                         case(#err err) {
@@ -193,10 +209,10 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
                                             });
                                         }; 
                                         case (#ok){
+                                            count += 1;
                                             continue l;
                                         };   
                                     };
-                                    count += 1;
                                 } else {
                                     break l;
                                 };
@@ -217,23 +233,17 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
         };
     };
 
-    private func isIn(id : Text, tokenIndexes : ?[Text]) : Bool {
+    private func isIn(id : Text, tokenIndexes : [Text]) : Bool {
 
-        switch(tokenIndexes){
-            case (null) { return false; };
-            case ( ?tki ) {
-                for (i in tki.vals()) {
+                for (i in tokenIndexes.vals()) {
                     if (i == id) {
                         return true;
                     };
                 };
                 return false;
-            };
-        };
     };
 
     public shared ({caller}) func isVerifyTransferWH (canisterId: Text, ids : [Text], invoiceId : Nat) : async Result.Result<(), TypesInvoices.InvoiceError> {
-            
         label l for(id in ids.vals()) {
             let currentInvoice = await getInvoice(invoiceId);
             switch (currentInvoice) {
@@ -268,7 +278,7 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
                                                             if (val == caller) {
                                                                 if (prop.name == "invoiceId") {
                                                                     switch (prop.value) {
-                                                                        case ( #Text (val) ) { 
+                                                                        case ( #Nat(val) ) { 
                                                                             if (val == invoiceId) {
                                                                                 continue l;
                                                                             } else {

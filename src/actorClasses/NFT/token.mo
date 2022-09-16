@@ -302,9 +302,9 @@ module Token {
             #ok(id_, owner);
         };
 
-        public func burn(caller : Principal, id : Text, invoiceId : Text) : async Result.Result<(), Types.Error> {
+        public func burn(caller : Principal, id : Text, invoiceId : Nat) : async Result.Result<(), Types.Error> {
             let to : Principal = Principal.fromText("e3mmv-5qaaa-aaaah-aadma-cai");
-            
+
             switch (nfts.get(id)) {
                 case (null) {
                     // NFT does not exist.
@@ -327,7 +327,7 @@ module Token {
                     });
                     ps.add({
                         name = "invoiceId";
-                        value = #Text(invoiceId);
+                        value = #Nat(invoiceId);
                         immutable = true;
                     });
 

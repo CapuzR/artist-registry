@@ -329,7 +329,7 @@ public query ({caller}) func listAssets() : async [(Text, (?Principal, [Principa
         res;
     };
 
-    public shared ({caller}) func burn(ids : [Text], invoiceId : Text) : async Result.Result<(), Types.Error> {
+    public shared ({caller}) func burn(ids : [Text], invoiceId : Nat) : async Result.Result<(), Types.Error> {
         label l for(id in ids.vals()) {
             let owner = switch (_canChange(caller, id)) {
                 case (#err(e)) { return #err(e); };
