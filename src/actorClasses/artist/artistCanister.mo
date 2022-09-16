@@ -152,9 +152,8 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
         };
     };
 
-    public shared ({caller}) func isVerifyPayment ( invoiceId : Nat, nftCanId : Principal ) : async Result.Result<(), TypesInvoices.InvoiceError> {
+    public shared ({caller}) func isVerifyPayment ( invoiceId : Nat, nftCanId : Principal, wHNFTCanId : Principal ) : async Result.Result<(), TypesInvoices.InvoiceError> {
 
-        let canisterId = Principal.fromActor(this);
         let currentInvoice = await getInvoice(invoiceId);
          
         switch (currentInvoice) {
@@ -180,7 +179,7 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
                                 kind = #Other;
                             });
                         } else {
-                            let tokenIds = await balanceOfNFTCan(nftCanId, canisterId);
+                            let tokenIds = await balanceOfNFTCan(nftCanId, wHNFTCanId);
                             var count : Nat = 0;
                             
                             label l for (tokenId in tokenIds.vals()) {
