@@ -114,10 +114,12 @@ shared({ caller = artistRegistry }) actor class ArtistCanister(artistMeta : Type
             case (null) { };
             case (?wHCanId) {
                 sumTokenIds := await balanceOfNFTCan(wHCanId, caller);
-                var count : Nat = 0;
-                while (count < quantity) {
-                    tokenIds.add(sumTokenIds[count]);
-                    count += 1;
+                if(sumTokenIds.size() > 0) {
+                    var count : Nat = 0;
+                    while (count < quantity) {
+                        tokenIds.add(sumTokenIds[count]);
+                        count += 1;
+                    };
                 };
             };
         };
