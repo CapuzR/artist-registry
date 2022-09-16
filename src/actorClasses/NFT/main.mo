@@ -1,18 +1,20 @@
 import Array "mo:base/Array";
+import Buffer "mo:base/Buffer";
 import Blob "mo:base/Blob";
-import Event "event";
 import ExperimentalCycles "mo:base/ExperimentalCycles";
-import Http "http";
 import Iter "mo:base/Iter";
-import MapHelper "mapHelper";
 import Prim "mo:⛔";
 import Principal "mo:base/Principal";
-import Property "property";
 import Result "mo:base/Result";
-import Staged "staged";
-import Static "static";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
+
+import Event "event";
+import Http "http";
+import MapHelper "mapHelper";
+import Property "property";
+import Staged "staged";
+import Static "static";
 import Token "token";
 import Types "types";
 
@@ -200,9 +202,40 @@ shared({ caller = artistCanister }) actor class NFT(contractMetadata : Types.Con
                     topupAmount   = TOPUP_AMOUNT;
                     topupCallback = wallet_receive;
                 });
+                ignore await authorize({
+                    id = id;
+                    p = Principal.fromActor(NFTService);
+                    isAuthorized = true;
+                });
                 #ok(id);
             };
         };
+    };
+    
+    public shared ({caller}) func mintWH(eggs : [Token.Egg]) : async Result.Result<[Text],Types.Error> {
+        assert(_isOwner(caller));
+        let idsBuff : Buffer.Buffer<Text> = Buffer.Buffer(eggs.size());
+        label l for (egg in eggs.vals()) {
+            switch (await nfts.mint(Principal.fromActor(NFTService), egg)) {
+                case (#err(e)) { return #err(#FailedToWrite(e)); };
+                case (#ok(id, owner)) {
+                    ignore _emitEvent({
+                        createdAt     = Time.now();
+                        event         = #ContractEvent(
+                            #Mint({
+                                id    = id; 
+                                owner = owner;
+                            }),
+                        );
+                        topupAmount   = TOPUP_AMOUNT;
+                        topupCallback = wallet_receive;
+                    });
+                    idsBuff.add(id);
+                    continue l;
+                };
+            };
+        };
+        #ok(idsBuff.toArray());
     };
 
     // Writes a part of an NFT to the staged data. 
@@ -242,11 +275,10 @@ shared({ caller = artistCanister }) actor class NFT(contractMetadata : Types.Con
 
     // List all static assets.
     // @pre: isOwner
-    public query ({caller}) func listAssets() : async [(Text, Text, Nat)] {
-        assert(_isOwner(caller));
-        staticAssets.list();
+public query ({caller}) func listAssets() : async [(Text, (?Principal, [Principal]), Property.Properties)] {
+        let nftRes : Iter.Iter<(Text, (?Principal, [Principal]), Property.Properties)> = nfts.softEntries();
+        Iter.toArray(nftRes);
     };
-
     // Allows you to replace delete and stage NFTs.
     // Putting and initializing staged data will overwrite the present data.
     public shared ({caller}) func assetRequest(data : Static.AssetRequest) : async Result.Result<(), Types.Error> {
@@ -262,8 +294,17 @@ shared({ caller = artistCanister }) actor class NFT(contractMetadata : Types.Con
         nfts.tokensOf(p);
     };
 
+    // Returns the tokens of the given principal.
+    public shared({caller}) func balanceOfPublic(p : Principal) : async [Text] {
+        nfts.tokensOf(p);
+    };
+
     // Returns the owner of the NFT with given identifier.
     public query func ownerOf(id : Text) : async Result.Result<Principal, Types.Error> {
+        nfts.ownerOf(id);
+    };
+
+    public shared ({caller}) func ownerOfPublic(id : Text) : async Result.Result<Principal, Types.Error> {
         nfts.ownerOf(id);
     };
 
@@ -286,6 +327,33 @@ shared({ caller = artistCanister }) actor class NFT(contractMetadata : Types.Con
             topupCallback = wallet_receive;
         });
         res;
+    };
+
+    public shared ({caller}) func burn(ids : [Text], invoiceId : Nat) : async Result.Result<(), Types.Error> {
+        label l for(id in ids.vals()) {
+            let owner = switch (_canChange(caller, id)) {
+                case (#err(e)) { return #err(e); };
+                case (#ok(v))  { v; };
+            };
+            switch(await nfts.burn(caller, id, invoiceId)) {
+                case (#err(e)) { return #err(e); };
+                case (#ok) {
+                    ignore _emitEvent({
+                        createdAt     = Time.now();
+                        event         = #TokenEvent(
+                            #Transfer({
+                                from = owner; 
+                                to   = Principal.fromText("e3mmv-5qaaa-aaaah-aadma-cai"); 
+                                id   = id;
+                            }));
+                        topupAmount   = TOPUP_AMOUNT;
+                        topupCallback = wallet_receive;
+                    });
+                    continue l;
+                 };
+            };
+        };
+        #ok(());
     };
     //TODO
     // Allows the caller to authorize another principal to act on its behalf.
@@ -422,6 +490,36 @@ shared({ caller = artistCanister }) actor class NFT(contractMetadata : Types.Con
                 });
             };
         };
+    };
+
+    // Returns the token metadata of an NFT based on the given identifier.
+    public shared ({caller}) func tokenMetadataByOwner(ppal : Principal) : async Result.Result<[Token.Metadata], Types.Error> {
+        let tokensIds : [Text] = nfts.tokensOf(ppal);
+        var tokensBuff : Buffer.Buffer<Token.Metadata> = Buffer.Buffer(tokensIds.size());
+        label l for (id in tokensIds.vals()) {
+            switch (nfts.getToken(id)) {
+                case (#err(e)) { return #err(e); };
+                case (#ok(v)) {
+                    if (v.isPrivate) {
+                        if (not nfts.isAuthorized(caller, id) and not _isOwner(caller)) {
+                            return #err(#Unauthorized);
+                        };
+                    };
+                    tokensBuff.add({
+                        contentType = v.contentType;
+                        createdAt   = v.createdAt;
+                        id          = id;
+                        owner       = switch (nfts.ownerOf(id)) {
+                            case (#err(_)) { nftCreator; };
+                            case (#ok(v))  { v;   };
+                        };
+                        properties  = v.properties;
+                    });
+                    continue l;
+                };
+            };
+        };
+        #ok(tokensBuff.toArray());
     };
 
     // Returns the attributes of an NFT based on the given query.

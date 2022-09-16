@@ -1,6 +1,61 @@
 
 module {
 
+    public type Invoice = {
+        id : Nat;
+        creator : Principal;
+        amount : Nat;
+        token : Text;
+        destination : Text;
+        quantity : Nat;
+    };
+
+     public type InvoiceError = {
+        message : ?Text;
+        kind : {
+            #InvalidInvoiceId;
+            #NotFound;
+            #NotAuthorized;
+            #InvalidToken;
+            #Other;
+            #BadFee;
+            #InsufficientFunds;
+            #InvalidDestination;
+            #NotYet;
+            #InvalidAccount
+        };
+    };
+
+    
+    public type CreateInvoiceResult = {
+        invoice:Invoice;
+        subAccount:Text;
+    };
+
+      public type AccountIdentifier = {
+        #text : Text;
+        #principal : Principal;
+        #blob : Blob;
+    };
+
+
+    public type AccountBalanceArgs = {
+        account: Blob;
+    };
+
+    public type Tokens = {
+        e8s: Nat64;
+    };
+
+    public type SubAccount = Blob;
+
+    public type CreateCanistersResult = {
+        canisterId:Text;
+        assetCanisters:[Text];
+        ok:Bool;
+    };
+
+
     public type InitOptions = {
         artistWhitelist : [Principal];
         admins : [Principal];
@@ -25,7 +80,10 @@ module {
         #False;
         #Float : Float;
         #Principal : Principal;
+        #VecText : [Text];
     };
+
+    
 
 
     public type Error = {

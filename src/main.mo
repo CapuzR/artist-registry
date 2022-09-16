@@ -1,24 +1,29 @@
+import Array "mo:base/Array";
+import Blob "mo:base/Blob";
+import Buffer "mo:base/Buffer";
+import Cycles "mo:base/ExperimentalCycles";
+import Debug "mo:base/Debug";
+import Hash       "mo:base/Hash";
+import HashMap    "mo:base/HashMap";
+import Iter "mo:base/Iter";
+import Nat "mo:base/Nat";
+import Prim "mo:prim";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
-import Trie "mo:base/Trie";
-import Array "mo:base/Array";
 import Text "mo:base/Text";
-import Buffer "mo:base/Buffer";
-import Iter "mo:base/Iter";
-import Debug "mo:base/Debug";
+import Trie "mo:base/Trie";
+
+import Hex "./Hex";
+import ICP "./ICPledger";
+import NFTTypes "./actorClasses/NFT/types";
+import Rels "./Rels/Rels";
+import TokenTypes "./actorClasses/NFT/token";
 import Types "./types";
 import Utils "./utils";
-import Prim "mo:prim";
-import Rels "./Rels/Rels";
-import Blob "mo:base/Blob";
-import Cycles "mo:base/ExperimentalCycles";
-import NFTTypes "./actorClasses/NFT/types";
-import TokenTypes "./actorClasses/NFT/token";
-
 import aC "./actorClasses/artist/artistCanister";
 import assetC "./actorClasses/asset/assetCanister";
 
-shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = ArtistRegistry {
+shared({ caller = owner }) actor  class(initOptions: Types.InitOptions) = ArtistRegistry {
 
 //-------------------Types
 
@@ -34,9 +39,209 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = ArtistR
 
     stable var usernamePpal : [(Text, Principal)] = []; //username,artistPrincipal
     let usernamePpalRels = Rels.Rels<Text, Principal>((Text.hash, Principal.hash), (Text.equal, Principal.equal), usernamePpal);
-
+    
     stable var artists : Trie.Trie<Principal, Metadata> = Trie.empty();
     stable var registryName : Text = "Artists registry";
+
+    //-------------------Invoices states;
+
+    var invoices = HashMap.HashMap<Nat, Types.Invoice>(1, Nat.equal, Hash.hash);
+    var counter : Nat = 0;
+    stable var invoicePpal : [(Nat, Principal)] = []; //invoiceId,artistPrincipal
+    let invoicePpalRels = Rels.Rels<Nat, Principal>((Hash.hash, Principal.hash), (Nat.equal, Principal.equal), invoicePpal);
+    
+    //  var owner : Principal =  Principal.fromActor(ArtistRegistry);
+
+    //-------------------Invoices methods;
+
+    public shared query ({caller}) func getInvoice ( id : Nat) : async Result.Result<Types.Invoice, Types.InvoiceError> {
+        if(Principal.isAnonymous(caller)) {
+            return #err({
+                message = ?"Not Authorized";
+                kind = #NotAuthorized ;
+            });
+        };
+
+        switch (invoices.get(id)) {
+        case null {
+            #err({
+                message = ?"Invoice not found";
+                kind = #NotFound;
+            });
+        };
+        case (? v) {
+            #ok((v))
+        };
+        };
+    };
+    
+    public shared query ({caller}) func getInvoicesByPrincipal(ppal : Principal) : async Result.Result<[(Nat, Types.Invoice)], Types.InvoiceError> {
+        if(Principal.isAnonymous(caller)) {
+            return #err({
+                message = ?"Not Authorized";
+                kind = #NotAuthorized ;
+            });
+        };
+
+        let invoicesIds : [Nat] = invoicePpalRels.get1(ppal);
+        let invBuff : Buffer.Buffer<(Nat, Types.Invoice)> = Buffer.Buffer(0);
+
+        label l for (invId in invoicesIds.vals()) {
+            switch (invoices.get(invId)) {
+                case null {
+                    continue l;
+                };
+                case (? invoice) {
+                    invBuff.add((invId, invoice));
+                };
+            };
+        };
+
+        #ok(invBuff.toArray());
+    };
+
+
+    public shared ({caller}) func createInvoice ( token : Text, amount : Nat, quantity : Nat ) : async Result.Result<Types.CreateInvoiceResult, Types.InvoiceError> {
+    
+        if(Principal.isAnonymous(caller)) {
+        return #err({
+            message = ?"Not Authorized";
+            kind = #NotAuthorized ;
+            });
+        };
+        let invoiceId : Nat = counter + 1;
+        counter+=1;
+        let account = await getAccount( 
+            token,
+            caller,
+            invoiceId,
+            Principal.fromActor(ArtistRegistry)
+        );
+        switch(account){
+        case (#err(e)) {
+            return #err(e);
+        };
+        case (#ok(result)){
+            
+            switch(result){
+            case (#text (textAccount)){
+                invoices.put(invoiceId, { id = invoiceId; creator = owner; amount = amount; token = "ICP"; destination=textAccount; quantity = quantity });
+                invoicePpalRels.put(invoiceId, caller);
+
+                #ok({
+                    invoice = {
+                        id=invoiceId;
+                        creator=owner;
+                        amount=amount;
+                        token=token;
+                        destination=textAccount;
+                        quantity=quantity;
+                    };
+                subAccount=textAccount;
+                });
+            };
+            };
+        };
+        case (_){
+            #err({
+            message = ?"Not Yet";
+            kind = #NotYet;
+            });
+        } 
+        };
+    };
+
+    private func getAccount (token : Text, principal : Principal, invoiceId : Nat, canisterId : Principal)  :  async Result.Result<Types.AccountIdentifier, Types.InvoiceError> {
+      switch(token){
+        case("ICP"){
+          let account = Utils.getICPAccountIdentifier({
+            principal = canisterId;
+            subaccount = Utils.generateInvoiceSubaccount({
+              caller = principal;
+              id = invoiceId;
+            })
+          });
+          let hexEncoded = Hex.encode(Blob.toArray(account));
+          let result : Types.AccountIdentifier = #text(hexEncoded);
+          return #ok(result);
+        };
+        case(_){
+           #err({
+          message = ?"Invalid token";
+          kind = #InvalidToken ;
+        });
+        };
+      };
+    };
+
+    public shared ({caller}) func isVerifyPayment (invoiceId : Nat, invoiceType : Text) : async Result.Result<Types.CreateCanistersResult, Types.InvoiceError> {
+
+        let canisterId = Principal.fromActor(ArtistRegistry);
+        let currentInvoice = await getInvoice(invoiceId);
+         
+        switch (currentInvoice) {
+          case (#err(e)) {
+            return #err(e);
+          };
+          case (#ok(invoice)) {
+             
+            switch (invoice.token){
+              case("ICP"){
+                let balanceResult = await ICP.balance(invoice.destination);
+                switch(balanceResult){
+                    case(#err err) {
+                        return #err({
+                            message = ?"Error in get balance";
+                            kind = #Other;
+                        });
+                    };
+                    case(#ok balance){
+                        if(balance < invoice.amount){
+                            return #err({
+                                message = ?"Insuficient balance for validate invoice";
+                                kind = #Other;
+                            });
+                        }else{
+                            if(invoiceType == "storage"){
+                                let artistCan = await createArtistCan(caller, invoice.quantity);
+                                switch(artistCan){
+                                    case(#err err){
+                                        return #err({
+                                            message = ?"Error un create canisters privates";
+                                            kind = #Other;
+                                        });
+                                    };
+                                    case (#ok canisters){
+                                        #ok(canisters);
+                                    }
+                                }
+                            } else {
+                                #ok({
+                                    canisterId = "N/A";
+                                    assetCanisters = [];
+                                    ok = true;
+                                })
+                            }
+
+                            
+                            
+                        }
+                    };
+                };
+            };
+              case(_){
+                return #err({
+                  message = ?"This token is not yet supported. Currently, this canister supports ICP.";
+                  kind = #NotFound;
+                });
+              };
+            };
+          };
+        };
+    };
+
+    
+
 
 //-------------------Registry
 
@@ -283,7 +488,7 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = ArtistR
         };
     };
 
-    public shared({caller}) func createArtistCan() : async Result.Result<(Principal, Principal), Error> {
+    private func createArtistCan(caller : Principal, quantity : Nat) : async Result.Result<Types.CreateCanistersResult, Error> {
 
         if(not Utils.isAuthorized(caller, artistWhitelist)) {
             return #err(#NotAuthorized);
@@ -294,26 +499,41 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = ArtistR
             Utils.key(caller),
             Principal.equal,
         );
-
+        
         switch(result) {
             case (? v) {
-
                 if(v.principal_id != caller) { return #err(#NotAuthorized); };
                 if(Utils.isInDetails(v.details, "canisterId")) { return #err(#Unknown("Already exists")); };
 
-                // let cycleShare = ;
-                let cycleShare = 4_000_000_000_000;
+                let cycleShare = 10_000_000_000_000;
                 Cycles.add(cycleShare);
                 let artistCan = await aC.ArtistCanister(v, Principal.fromActor(ArtistRegistry));
+                var count : Nat = 0;
+                var assetCanistersBuffer : Buffer.Buffer<Text> = Buffer.Buffer(1);
+                var artistCanisterId : Text = "";
+                let buff : Buffer.Buffer<(Text, DetailValue)> = Utils.arrayToBuffer(v.details);
+              
                 // let amountAccepted = await artistCan.wallet_receive();
-                switch(await artistCan.createAssetCan()) {
-                    case (#ok canPpals) {
-                        let (canisterId, assetCanId)  : (Principal, Principal) = canPpals;
-                        let buff : Buffer.Buffer<(Text, DetailValue)> = Utils.arrayToBuffer(v.details);
-                        buff.add(("canisterId", #Principal(canisterId)));
-                        buff.add(("assetCanId", #Principal(assetCanId)));
-
-                        let artist: Metadata = {
+                while (count < quantity) {
+                    count += 1;
+                    Debug.print(debug_show(count));
+                    let assetCanister = await artistCan.createAssetCan();
+                   switch(assetCanister){
+                       case (#err err){
+                            return #err(#NonExistentItem);
+                       };
+                       case (#ok canisterIds){
+                            let (canisterId, assetCanId)  : (Principal, Principal) = canisterIds;
+                            if(artistCanisterId == ""){
+                                artistCanisterId:= Principal.toText(canisterId);
+                            };
+                            assetCanistersBuffer.add(Principal.toText(assetCanId));
+                       };
+                   };
+                };
+                buff.add(("canisterId", #Text(artistCanisterId)));
+                buff.add(("assetCanisters", #VecText(assetCanistersBuffer.toArray())));
+                let artist: Metadata = {
                             thumbnail = v.thumbnail;
                             name = v.name;
                             frontend = null;
@@ -322,12 +542,13 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = ArtistR
                             details = buff.toArray();
                         };
                         let dummy = await _update(caller, artist);
-                        #ok((canisterId, assetCanId));
-
-                    };
-                    case (#err e) { return #err(e) };
-                };
+                #ok({
+                        canisterId = artistCanisterId;
+                        assetCanisters = assetCanistersBuffer.toArray();
+                        ok = true;
+                    });
             };
+            
             case null {
                 return #err(#NonExistentItem);
             };
@@ -456,13 +677,14 @@ shared({ caller = owner }) actor class(initOptions: Types.InitOptions) = ArtistR
         };
 
         if(assetCanisterIds.size() != 0) { return #err(#Unknown("Already exists")); };
-
         let tb : Buffer.Buffer<Principal> = Buffer.Buffer(1);
+        
         let cycleShare = 2_000_000_000_000;
         Cycles.add(cycleShare);
+        Debug.print(debug_show("LLEGUE HAST"));
         let assetCan = await assetC.Assets(caller);
         let assetCanisterId = await assetCan.getCanisterId();
-
+        
         tb.add(assetCanisterId);
 
         assetCanisterIds := tb.toArray();

@@ -34,6 +34,7 @@ module {
     public type NFTMetadata = {
         name : Text;
         symbol : Text;
+        value : ?Nat;
         supply : ?Nat;
         website : ?Text;
         socials : [?(Text, Text)];
@@ -44,11 +45,45 @@ module {
         name : Text;
         symbol : Text;
         supply : ?Nat;
+        value : ?Nat;
         website : ?Text;
         socials : [?(Text, Text)];
         prixelart : ?Text;
         principal : Principal;
     };
+    
+    public type Invoice = {
+        id : Nat;
+        creator : Principal;
+        amount : Nat;
+        token : Text;
+        destination : Text;
+        quantity : Nat;
+        tokenIndexes : [Text];
+    };
+
+     public type InvoiceError = {
+        message : ?Text;
+        kind : {
+            #InvalidInvoiceId;
+            #NotFound;
+            #NotAuthorized;
+            #InvalidToken;
+            #Other;
+            #BadFee;
+            #InsufficientFunds;
+            #InvalidDestination;
+            #NotYet;
+            #InvalidAccount
+        };
+    };
+
+    
+    public type CreateInvoiceResult = {
+        invoice:Invoice;
+        subAccount:Text;
+    };
+
 
 
 //General Types
@@ -72,6 +107,7 @@ module {
         #False;
         #Float : Float;
         #Principal : Principal;
+        #VecText : [Text];
     };
 
     public type Error = {
@@ -80,4 +116,12 @@ module {
         #BadParameters;
         #Unknown : Text;
     };
+
+     public type ContractInfo = {
+        heapSize : Nat; 
+        memorySize : Nat;
+        maxLiveSize : Nat;
+        cycles : Nat; 
+    };
+
 }

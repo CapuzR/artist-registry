@@ -1,11 +1,12 @@
-import AssetStorage "mo:asset-storage/AssetStorage";
+import Debug "mo:base/Debug";
 import Hash "mo:base/Hash";
 import HashMap "mo:base/HashMap";
 import Nat "mo:base/Nat";
-import Result "mo:base/Result";
 import Principal "mo:base/Principal";
+import Result "mo:base/Result";
 import Text "mo:base/Text";
-import Debug "mo:base/Debug";
+
+import AssetStorage "mo:asset-storage/AssetStorage";
 
 module {
     public type Asset = {
@@ -33,6 +34,14 @@ module {
 
     public type Batch = {
         expires_at : Int;
+    };
+
+
+     public type ContractInfo = {
+        heapSize : Nat; 
+        memorySize : Nat;
+        maxLiveSize : Nat;
+        cycles : Nat; 
     };
 
     public class State(
